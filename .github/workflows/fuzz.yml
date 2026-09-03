@@ -1,14 +1,14 @@
 name: Fuzz
 
-# Coverage-guided fuzzing of the formatter core with jazzer.js: a short run on
-# PRs that touch it, a longer weekly run.
+# Coverage-guided fuzzing of the formatter core with jazzer.js. Pull requests
+# replay the committed corpus (a deterministic regression check); the weekly run
+# and manual dispatch explore for new inputs.
 
 on:
   pull_request:
     paths:
       - "src/core/**"
       - "fuzz/**"
-      - "esbuild.config.mjs"
       - "package-lock.json"
   schedule:
     - cron: "37 4 * * 3"
@@ -48,11 +48,19 @@ jobs:
       - name: Build fuzz bundle
         run: npm run build:fuzz
 
+      # Pull requests: replay the committed corpus once, no new-input generation.
+      # Deterministic, so a red result is a real regression, never a flake.
+      - name: Replay corpus
+        if: github.event_name == 'pull_request'
+        run: npx jazzer fuzz/format.fuzz.cjs fuzz/corpus -- -runs=0 -timeout=20 -rss_limit_mb=4096 -print_final_stats=1
+
+      # Scheduled / manual: explore for new inputs, seeded from the corpus.
       - name: Fuzz
+        if: github.event_name != 'pull_request'
         run: |
-          npx jazzer fuzz/format.fuzz.cjs -- \
+          npx jazzer fuzz/format.fuzz.cjs fuzz/corpus -- \
             -max_total_time=${{ github.event_name == 'schedule' && 600 || 120 }} \
-            -print_final_stats=1
+            -timeout=20 -rss_limit_mb=4096 -print_final_stats=1
 
       - name: Upload crash inputs
         if: failure()
@@ -63,5 +71,6 @@ jobs:
             crash-*
             timeout-*
             oom-*
+            slow-unit-*
           if-no-files-found: ignore
           retention-days: 14

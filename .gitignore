@@ -12,10 +12,12 @@ coverage/
 markdown-formatter-cli.cjs
 fuzz/core.cjs
 
-# jazzer.js crash reproducers from a local `npm run fuzz`
+# jazzer.js reproducers from a local `npm run fuzz`
 crash-*
 timeout-*
 oom-*
+slow-unit-*
+fuzzfind-*
 
 # Maintainer-only notes (repo setup, release process). Not part of the published plugin.
 /internal/
