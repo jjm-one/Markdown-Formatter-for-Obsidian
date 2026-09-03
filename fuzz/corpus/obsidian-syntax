@@ -1,0 +1,19 @@
+Wikilinks: [[Page]], [[Page|alias]], ![[embed.png]]
+Tags: #project #area/sub
+
+> [!note]- Folded
+> content
+
+Math: $a^2 + b^2$ and $$\int_0^1 x\,dx$$
+
+Block id ^abc123
+
+% a comment %
+
+Footnote.^[inline note]
+
+==highlight== text
+
+```mermaid
+graph TD; A-->B
+```

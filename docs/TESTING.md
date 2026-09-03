@@ -107,14 +107,20 @@ The CI workflow runs coverage tests before build/release packaging and performs 
 
 ## Fuzzing
 
-`fuzz/format.fuzz.cjs` is a [jazzer.js](https://github.com/CodeIntelligenceTesting/jazzer.js) target that feeds arbitrary bytes to `formatMarkdown()` — the regex-heavy Obsidian tokenization and restore passes are the most likely place for a pathological-input crash or hang.
+`fuzz/format.fuzz.cjs` is a [jazzer.js](https://github.com/CodeIntelligenceTesting/jazzer.js) target that feeds arbitrary bytes to `formatMarkdown()` — the regex-heavy Obsidian tokenization and restore passes are the most likely place for a pathological-input crash or hang. `fuzz/corpus/` holds committed seed inputs; new interesting inputs found by the scheduled run are added there.
 
 ```bash
-npm run fuzz          # build the bundle + fuzz for 60s
-npm run build:fuzz    # just write fuzz/core.cjs (git-ignored), e.g. for a custom jazzer run
+npm run fuzz          # build the bundle + explore for 60s, seeded from fuzz/corpus/
+npm run fuzz:replay   # just re-run the committed corpus once (the PR regression check)
+npm run build:fuzz    # only write fuzz/core.cjs (git-ignored), for a custom jazzer run
 ```
 
-`.github/workflows/fuzz.yml` runs it with jazzer.js on every PR that touches `src/core/**` or `fuzz/**` (~2 min) and once a week (~10 min); crash inputs upload as an artifact. `.clusterfuzzlite/` is a ready OSS-Fuzz build integration but is not run in CI — ClusterFuzzLite's Action has no JavaScript path.
+`.github/workflows/fuzz.yml`:
+
+- **pull requests** touching `src/core/**`, `fuzz/**`, or `package-lock.json` replay `fuzz/corpus/` once (`-runs=0`) — deterministic, so a failure is a real regression, not a fuzzing flake;
+- the **weekly run** and manual dispatch explore for new inputs (~10 min / ~2 min), seeded from the corpus; crash, timeout, and slow-unit inputs upload as an artifact.
+
+`.clusterfuzzlite/` is a ready OSS-Fuzz build integration, not run in CI.
 
 ## Coverage policy
 

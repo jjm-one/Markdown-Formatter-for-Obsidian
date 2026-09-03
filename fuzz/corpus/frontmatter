@@ -1,0 +1,11 @@
+---
+title: Note
+aliases: ["A", "B"]
+tags:
+  - x/y
+updated: 2020-01-01
+---
+
+# Heading
+
+Body with a [link](https://example.com) and `code`.

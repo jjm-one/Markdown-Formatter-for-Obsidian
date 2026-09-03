@@ -16,9 +16,8 @@ const production = mode === "production";
 const nodeBuiltins = [...builtinModules, ...builtinModules.map((name) => `node:${name}`)];
 
 // Bundled Prettier calls `createRequire(import.meta.url)` at module scope, which
-// is undefined in a CJS bundle. Define it from the host module's path, falling
-// back to the running executable — Obsidian does not expose `__filename` on every
-// platform, and `createRequire` rejects a bare "file:///".
+// is undefined in a CJS bundle. Point it at the host module, or the running
+// executable when the loader does not expose `__filename`.
 const IMPORT_META_URL_SHIM =
   "var import_meta_url = require('node:url').pathToFileURL(" +
   "typeof __filename !== 'undefined' && __filename ? __filename : process.execPath" +

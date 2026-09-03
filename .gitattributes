@@ -1,4 +1,7 @@
 * text=auto eol=lf
+
+# Fuzz corpus entries are exact byte sequences (CRLF, BOM, invalid UTF-8).
+fuzz/corpus/** binary
 *.png binary
 *.jpg binary
 *.jpeg binary
