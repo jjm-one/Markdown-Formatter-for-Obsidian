@@ -19,6 +19,21 @@ updates:
     labels:
       - dependencies
     groups:
+      # The lint/type toolchain is peer-coupled, so it moves as one PR across all
+      # update types — otherwise a partial bump leaves the peer tree unresolvable.
+      lint-and-types:
+        patterns:
+          - "eslint"
+          - "eslint-plugin-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "globals"
+        update-types:
+          - major
+          - minor
+          - patch
       runtime-minor-patch:
         dependency-type: production
         update-types:
@@ -26,6 +41,14 @@ updates:
           - patch
       development-minor-patch:
         dependency-type: development
+        exclude-patterns:
+          - "eslint"
+          - "eslint-plugin-*"
+          - "@eslint/*"
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "globals"
         update-types:
           - minor
           - patch

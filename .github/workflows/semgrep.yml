@@ -42,7 +42,7 @@ jobs:
             --metrics=off \
             --exclude-rule package_managers.npm.npm-missing-minimum-release-age \
             --sarif --output semgrep.sarif
-        # min-release-age in .npmrc breaks Dependabot; the cooldown lives in dependabot.yml.
+        # Cooldown is enforced through .github/dependabot.yml, not npm's min-release-age.
 
       - name: Upload SARIF to code scanning
         if: ${{ always() && hashFiles('semgrep.sarif') != '' }}

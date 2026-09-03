@@ -114,7 +114,7 @@ npm run fuzz          # build the bundle + fuzz for 60s
 npm run build:fuzz    # just write fuzz/core.cjs (git-ignored), e.g. for a custom jazzer run
 ```
 
-`.github/workflows/fuzz.yml` runs it with jazzer.js on every PR that touches `src/core/**` or `fuzz/**` (~2 min) and once a week (~10 min); crash inputs upload as an artifact. `.clusterfuzzlite/` is a ready OSS-Fuzz build integration but is not run in CI — ClusterFuzzLite's Action has no JavaScript path.
+`.github/workflows/fuzz.yml` runs it with jazzer.js on every PR that touches `src/core/**` or `fuzz/**` (~2 min) and once a week (~10 min); crash inputs upload as an artifact. `.clusterfuzzlite/` is a ready OSS-Fuzz build integration, not run in CI.
 
 ## Coverage policy
 

@@ -1,8 +1,7 @@
 name: Fuzz
 
 # Coverage-guided fuzzing of the formatter core with jazzer.js: a short run on
-# PRs that touch it, a longer weekly run. (ClusterFuzzLite's action has no
-# JavaScript support, so jazzer.js is invoked directly.)
+# PRs that touch it, a longer weekly run.
 
 on:
   pull_request:

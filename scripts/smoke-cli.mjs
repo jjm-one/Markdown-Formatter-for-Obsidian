@@ -11,8 +11,7 @@ const cli = path.resolve("markdown-formatter-cli.cjs");
 if (!fs.existsSync(cli)) throw new Error(`Bundled CLI not found: ${cli}`);
 
 // The `import.meta.url` shim prepended to every bundle must resolve to a real
-// absolute file even when the host exposes no `__filename` (Obsidian's loader
-// does not on every platform). Emulate that host and check both bundles.
+// absolute file even when the host exposes no `__filename`. Check both bundles.
 for (const bundle of ["main.js", cli]) {
   if (!fs.existsSync(bundle)) continue;
   const shimLine = fs
