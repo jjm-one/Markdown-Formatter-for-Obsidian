@@ -1,0 +1,98 @@
+{
+  "name": "markdown-formatter-for-obsidian",
+  "version": "0.1.0",
+  "description": "Format Obsidian Markdown safely with Prettier, markdownlint, EditorConfig, and a shared standalone CI CLI.",
+  "license": "LGPL-3.0-only",
+  "type": "module",
+  "main": "main.js",
+  "files": [
+    "main.js",
+    "markdown-formatter-cli.cjs",
+    "manifest.json",
+    "styles.css",
+    "README.md",
+    "LICENSE",
+    "LICENSES",
+    "THIRD_PARTY_NOTICES.md",
+    ".markdown-formatter.example.json",
+    ".markdown-formatter-ignore.example",
+    ".markdown-formatter.schema.json",
+    "docs"
+  ],
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "dev": "node esbuild.config.mjs",
+    "format:check": "prettier --check \"src/**/*.{ts,js,mjs}\" \"tests/**/*.ts\" \"fuzz/**/*.cjs\" \"vitest.config.ts\" \"scripts/**/*.mjs\" \"*.{json,md,mjs}\" \".github/**/*.{yml,yaml,md}\" \"docs/**/*.md\" \"examples/**/*.{yml,yaml,md}\"",
+    "format:write": "prettier --write \"src/**/*.{ts,js,mjs}\" \"tests/**/*.ts\" \"fuzz/**/*.cjs\" \"vitest.config.ts\" \"scripts/**/*.mjs\" \"*.{json,md,mjs}\" \".github/**/*.{yml,yaml,md}\" \"docs/**/*.md\" \"examples/**/*.{yml,yaml,md}\"",
+    "lint": "eslint src scripts tests fuzz",
+    "lint:fix": "eslint src scripts tests fuzz --fix",
+    "build:fuzz": "node esbuild.config.mjs fuzz",
+    "fuzz": "npm run build:fuzz && jazzer fuzz/format.fuzz.cjs -- -max_total_time=60 -print_final_stats=1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "node esbuild.config.mjs production",
+    "check:versions": "node scripts/check-versions.mjs",
+    "check:obsidian": "node scripts/check-obsidian-compat.mjs",
+    "check:repository": "node scripts/check-repository.mjs",
+    "check:metadata": "npm run check:versions && npm run check:obsidian && npm run check:repository",
+    "check": "npm run check:metadata && npm run format:check && npm run lint && npm run typecheck",
+    "verify": "npm run check && npm run test:coverage",
+    "test:cli-bundle": "node scripts/smoke-cli.mjs",
+    "package:release": "node scripts/package-release.mjs",
+    "verify:release": "node scripts/verify-release.mjs",
+    "ci": "npm run verify && npm run build && npm run test:cli-bundle && npm run package:release && npm run verify:release",
+    "preversion": "npm run verify",
+    "version": "node scripts/version-bump.mjs && git add manifest.json versions.json examples/docker/Dockerfile",
+    "prepack": "npm run build",
+    "package:main-build": "node scripts/package-main-build.mjs",
+    "verify:main-build": "node scripts/verify-main-build.mjs"
+  },
+  "dependencies": {
+    "markdownlint": "0.41.1",
+    "prettier": "3.9.6"
+  },
+  "devDependencies": {
+    "@jazzer.js/core": "4.0.0",
+    "@types/node": "26.4.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "esbuild": "0.28.2",
+    "eslint": "10.9.1",
+    "eslint-plugin-obsidianmd": "0.4.2",
+    "globals": "17.11.0",
+    "obsidian": "1.13.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.69.0",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "author": "jjm.one",
+  "private": true,
+  "homepage": "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jjm-one/Markdown-Formatter-for-Obsidian.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/issues"
+  },
+  "keywords": [
+    "obsidian",
+    "markdown",
+    "formatter",
+    "prettier",
+    "markdownlint",
+    "editorconfig",
+    "gfm",
+    "gitlab",
+    "cli",
+    "ci"
+  ],
+  "bin": {
+    "markdown-formatter": "markdown-formatter-cli.cjs"
+  },
+  "packageManager": "npm@11.19.0"
+}

@@ -1,0 +1,16 @@
+# Markdown Formatter ignore patterns
+# Paths are relative to the Obsidian vault/workspace root.
+# * matches within one path segment, ** crosses directories, and ? matches one character.
+# Prefix a pattern with ! to re-include a path matched by an earlier pattern.
+
+# Ignore all templates
+Templates/**
+
+# Ignore generated notes anywhere in the vault
+*.generated.md
+
+# Ignore Markdown under Archive, including nested folders
+Archive/**/*.md
+
+# Re-include one generated note
+!important.generated.md

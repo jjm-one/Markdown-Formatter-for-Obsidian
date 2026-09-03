@@ -1,0 +1,21 @@
+node_modules/
+main.js
+release/
+main-build/
+*.tgz
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+markdown-formatter-cli.cjs
+fuzz/core.cjs
+
+# jazzer.js crash reproducers from a local `npm run fuzz`
+crash-*
+timeout-*
+oom-*
+
+# Maintainer-only notes (repo setup, release process). Not part of the published plugin.
+/internal/

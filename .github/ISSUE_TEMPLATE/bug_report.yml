@@ -1,0 +1,52 @@
+name: Bug report
+description: Report a reproducible formatting or plugin problem.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please use synthetic Markdown. Do not paste private vault content.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the expected and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal Markdown reproduction
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Include .editorconfig and .markdown-formatter.json values that affect the example.
+      render: json
+  - type: input
+    id: obsidian
+    attributes:
+      label: Obsidian version
+    validations:
+      required: true
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin version
+    validations:
+      required: true
+  - type: dropdown
+    id: trigger
+    attributes:
+      label: Formatting trigger
+      options:
+        - Manual command / hotkey / ribbon
+        - Continuous formatting
+        - Format on open
+        - Format on close
+    validations:
+      required: true

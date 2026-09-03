@@ -1,0 +1,9 @@
+main.js
+markdown-formatter-cli.cjs
+release/
+coverage/
+THIRD_PARTY_NOTICES.md
+
+# Regression fixtures carry deliberately odd spacing/syntax — never reformat them.
+# (They are also kept as `.txt` so editors leave them alone.)
+tests/fixtures/

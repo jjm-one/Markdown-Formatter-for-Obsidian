@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jjm-one/Markdown-Formatter-for-Obsidian/main/.markdown-formatter.schema.json",
+  "formatOnModify": false,
+  "formatOnOpen": false,
+  "formatOnClose": true,
+  "showRibbonButton": true,
+  "debounceMs": 900,
+  "runMarkdownlintFixes": true,
+  "usePrettierConfig": true,
+  "stampUpdatedProperty": false,
+  "updatedProperty": "updated",
+  "proseWrap": "preserve",
+  "markdownStructures": {
+    "tables": "prettier",
+    "lists": "prettier",
+    "fencedCodeBlocks": "preserve",
+    "blockquotes": "prettier",
+    "horizontalRules": "prettier"
+  },
+  "links": {
+    "markdownLinks": "prettier",
+    "referenceDefinitions": "preserve",
+    "obsidianWikilinks": "preserve",
+    "autolinks": "preserve"
+  },
+  "obsidianSyntax": {
+    "properties": "preserve",
+    "callouts": "preserve",
+    "blockIds": "preserve",
+    "comments": "preserve",
+    "math": "preserve",
+    "tags": "preserve",
+    "inlineFootnotes": "preserve",
+    "highlights": "preserve"
+  },
+  "prettier": {},
+  "markdownlint": {
+    "default": true,
+    "MD013": false,
+    "MD018": false,
+    "MD033": false,
+    "MD041": false,
+    "MD045": false
+  },
+  "ignore": {
+    "file": ".markdown-formatter-ignore",
+    "patterns": []
+  }
+}

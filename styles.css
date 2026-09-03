@@ -1,0 +1,6 @@
+/* The markdownlint-config textarea in the settings tab. */
+.markdown-formatter-markdownlint-config {
+  width: 100%;
+  min-height: 10rem;
+  font-family: var(--font-monospace);
+}

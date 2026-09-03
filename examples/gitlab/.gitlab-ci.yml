@@ -1,0 +1,12 @@
+# Example: fail a GitLab pipeline when the vault's Markdown is not formatted.
+# Add to your .gitlab-ci.yml and pin the release version in the URL.
+
+markdown-format:
+  image: node:24
+  stage: test
+  script:
+    - >-
+      curl -fsSL
+      -o /tmp/markdown-formatter.cjs
+      https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+    - node /tmp/markdown-formatter.cjs check .

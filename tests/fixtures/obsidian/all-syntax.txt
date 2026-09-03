@@ -1,0 +1,38 @@
+---
+aliases:
+  - "Exact Alias"
+tags:
+  - project/example
+cssclasses: [wide-page]
+---
+
+# Obsidian compatibility fixture
+
+[[Internal Note]] and [[Internal Note#Heading|Alias]] and ![[image.png|300]].
+
+> [!warning]- Keep fold state
+> Callout body with [[link]].
+
+Paragraph with block id. ^keep-this-id
+
+%% Keep   comment spacing exactly. %%
+
+#project/backend
+
+==keep highlighted text==
+
+Inline note ^[keep inline footnote].
+
+Inline math $a  +  b = c$.
+
+$$
+\\begin{aligned}
+a   &= b + c \\\\
+b   &= 2
+\\end{aligned}
+$$
+
+```mermaid
+graph TD
+    A --> B
+```

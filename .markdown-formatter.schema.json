@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jjm-one/Markdown-Formatter-for-Obsidian/main/.markdown-formatter.schema.json",
+  "title": "Obsidian Markdown Formatter configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "formatOnModify": {
+      "type": "boolean"
+    },
+    "formatOnOpen": {
+      "type": "boolean",
+      "description": "Format Markdown files when they are opened in Obsidian."
+    },
+    "formatOnClose": {
+      "type": "boolean",
+      "description": "Format Markdown files when their last open Markdown view is closed."
+    },
+    "showRibbonButton": {
+      "type": "boolean",
+      "description": "Show the left-ribbon button for manually formatting the active Markdown file."
+    },
+    "debounceMs": {
+      "type": "integer",
+      "minimum": 250,
+      "maximum": 600000
+    },
+    "runMarkdownlintFixes": {
+      "type": "boolean"
+    },
+    "usePrettierConfig": {
+      "type": "boolean"
+    },
+    "stampUpdatedProperty": {
+      "type": "boolean",
+      "description": "When a format changes a note, also set the frontmatter key named by updatedProperty to the current date (the plugin uses the date format from Obsidian's General settings). The key is only refreshed if it already exists — it is never added. No effect in the standalone CLI."
+    },
+    "updatedProperty": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9 _-]{1,64}$",
+      "default": "updated",
+      "description": "Frontmatter key refreshed by stampUpdatedProperty, for example updated, modified, or Last Update."
+    },
+    "proseWrap": {
+      "enum": ["always", "never", "preserve"]
+    },
+    "prettier": {
+      "type": "object",
+      "description": "Prettier options applied after discovered .editorconfig/.prettierrc values. parser and filepath are forced by the plugin."
+    },
+    "markdownlint": {
+      "type": "object",
+      "description": "markdownlint rule configuration, merged rule-by-rule over the defaults. The defaults disable MD013, MD018, MD033, MD041 and MD045; set a rule to true here to re-enable it (for example \"MD018\": true to fix a missing space after a leading hash when your vault never uses tags)."
+    },
+    "markdownStructures": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Controls whether rewrite-prone Markdown block structures are normalized or preserved in source form.",
+      "properties": {
+        "tables": {
+          "enum": ["prettier", "preserve"]
+        },
+        "lists": {
+          "enum": ["prettier", "preserve"]
+        },
+        "fencedCodeBlocks": {
+          "enum": ["prettier", "preserve"]
+        },
+        "blockquotes": {
+          "enum": ["prettier", "preserve"]
+        },
+        "horizontalRules": {
+          "enum": ["prettier", "preserve"]
+        }
+      }
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Controls normalization/preservation of different Markdown and Obsidian link syntaxes.",
+      "properties": {
+        "markdownLinks": {
+          "enum": ["prettier", "preserve"],
+          "description": "Standard inline/reference-style Markdown links and images. Default: prettier."
+        },
+        "referenceDefinitions": {
+          "enum": ["prettier", "preserve"],
+          "description": "Reference definitions such as [docs]: https://example.com. Default: preserve."
+        },
+        "obsidianWikilinks": {
+          "enum": ["prettier", "preserve"],
+          "description": "Obsidian [[wikilinks]] and ![[embeds]]. Default: preserve."
+        },
+        "autolinks": {
+          "enum": ["prettier", "preserve"],
+          "description": "Angle-bracket URL/mail autolinks such as <https://example.com>. Default: preserve."
+        }
+      }
+    },
+    "obsidianSyntax": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Protects Obsidian-specific Markdown extensions from generic formatting. Preserve is the safe default.",
+      "properties": {
+        "properties": {
+          "enum": ["format", "preserve"],
+          "description": "YAML/JSON frontmatter used by Obsidian Properties."
+        },
+        "callouts": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian > [!type] callouts including fold state and nesting."
+        },
+        "blockIds": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian ^block-id definitions."
+        },
+        "comments": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian %% comments."
+        },
+        "math": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian MathJax inline/display math."
+        },
+        "tags": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian #tag and #tag/subtag tokens."
+        },
+        "inlineFootnotes": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian ^[inline footnote] syntax."
+        },
+        "highlights": {
+          "enum": ["format", "preserve"],
+          "description": "Obsidian ==highlight== syntax."
+        }
+      }
+    },
+    "ignore": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Vault-wide formatting exclusions used by both the Obsidian plugin and standalone CLI.",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "default": ".markdown-formatter-ignore",
+          "description": "Ignore file path relative to the vault/workspace root.",
+          "maxLength": 4096
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "uniqueItems": true,
+          "default": [],
+          "description": "Additional glob-style ignore patterns. Prefix a pattern with ! to re-include a path.",
+          "maxItems": 10000
+        }
+      }
+    }
+  }
+}

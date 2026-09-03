@@ -1,0 +1,10 @@
+{
+  "id": "markdown-formatter",
+  "name": "Markdown Formatter",
+  "version": "0.1.0",
+  "minAppVersion": "1.13.7",
+  "description": "Format Markdown with Prettier, markdownlint, EditorConfig, and Obsidian-safe preservation rules.",
+  "author": "jjm.one",
+  "authorUrl": "https://github.com/jjm-one",
+  "isDesktopOnly": true
+}

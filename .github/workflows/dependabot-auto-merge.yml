@@ -1,0 +1,69 @@
+name: Dependabot auto-merge
+
+# Enable GitHub auto-merge for low-risk Dependabot PRs once required checks pass.
+# Needs repo settings: "Allow auto-merge" enabled and branch protection with required checks.
+
+on: pull_request
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge for low-risk updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Auto-merge: any patch, plus minor updates to dev dependencies and Actions.
+      # Everything else stays manual (see CONTRIBUTING.md).
+      - name: Decide whether this update may auto-merge
+        id: policy
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+        run: |
+          allow=false
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch)
+              allow=true
+              ;;
+            version-update:semver-minor)
+              if [[ "$DEPENDENCY_TYPE" == "direct:development" ]] \
+                || [[ "$PACKAGE_ECOSYSTEM" == "github_actions" ]]; then
+                allow=true
+              fi
+              ;;
+          esac
+          echo "allow=$allow" >> "$GITHUB_OUTPUT"
+          echo "update-type=$UPDATE_TYPE dependency-type=$DEPENDENCY_TYPE ecosystem=$PACKAGE_ECOSYSTEM -> auto-merge=$allow"
+
+      # Approves as github-actions[bot]. Remove this step to require a human review.
+      - name: Approve the pull request
+        if: steps.policy.outputs.allow == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr review --approve "$PR_URL"
+
+      - name: Enable auto-merge
+        if: steps.policy.outputs.allow == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
