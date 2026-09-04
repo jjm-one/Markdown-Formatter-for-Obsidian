@@ -131,19 +131,21 @@ assert(
 );
 assert(
   mainBuildWorkflow.includes("workflow_run"),
-  "Main development build must publish only after the CI workflow completes.",
+  "Rolling development build must publish only after the CI workflow completes.",
 );
 assert(
-  mainBuildWorkflow.includes("main-latest"),
-  "Main development build must maintain the rolling main-latest prerelease.",
+  mainBuildWorkflow.includes("-latest") &&
+    mainBuildWorkflow.includes("head_branch == 'main'") &&
+    mainBuildWorkflow.includes("head_branch == 'develop'"),
+  "Rolling development build must publish '<channel>-latest' for both the main and develop branches.",
 );
 assert(
   mainBuildWorkflow.includes("--prerelease"),
-  "Rolling main build must be clearly marked as a prerelease.",
+  "Rolling development build must be clearly marked as a prerelease.",
 );
 assert(
   /uses:\s*actions\/upload-artifact@[0-9a-f]{40} # v7/.test(mainBuildWorkflow),
-  "Main development build must retain commit-specific Actions artifacts (SHA-pinned upload-artifact v7).",
+  "Rolling development build must retain commit-specific Actions artifacts (SHA-pinned upload-artifact v7).",
 );
 
 const releaseScript = fs.readFileSync("scripts/package-release.mjs", "utf8");

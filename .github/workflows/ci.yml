@@ -1,10 +1,15 @@
 name: CI
 
-# Validate, build, package, and audit dependencies on every push to main and every pull request.
+# Tiered checks:
+#   - feature branch push        -> unit tests only
+#   - push to main / develop     -> full validate, build, package
+#   - pull request (any target)  -> full validate, build, package
+#   - push to main / PR to main  -> also audit dependencies
+# The heavier scans (CodeQL, Semgrep, Dependency Review, Fuzz, Scorecard) run
+# only on main and on PRs into main, from their own workflows.
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -16,8 +21,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quick-tests:
+    name: Unit tests
+    if: >-
+      github.event_name == 'push'
+      && github.ref != 'refs/heads/main'
+      && github.ref != 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Require reproducible dependency lock
+        shell: bash
+        run: test -f package-lock.json || { echo "package-lock.json is required." >&2; exit 1; }
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Unit tests
+        run: npm test
+
   build:
     name: Validate, build, and package
+    if: >-
+      github.event_name == 'pull_request'
+      || github.event_name == 'workflow_dispatch'
+      || github.ref == 'refs/heads/main'
+      || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -59,6 +99,7 @@ jobs:
 
   security-audit:
     name: Audit dependencies for known vulnerabilities
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

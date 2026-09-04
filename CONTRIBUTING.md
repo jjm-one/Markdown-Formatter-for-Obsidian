@@ -25,6 +25,14 @@ For local Obsidian testing, clone or symlink the repository into:
 
 The development build writes `main.js` at the repository root.
 
+## Branch workflow
+
+- `main` — stable. Tagged releases (`X.Y.Z`) are cut from here; publishes the `main-latest` rolling prerelease.
+- `develop` — integration branch. Publishes the `develop-latest` rolling prerelease.
+- Feature branches — branch off `develop`, PR back into `develop`. A push runs only the unit tests; the full check suite runs on the PR.
+
+Promotion to a release is a `develop` → `main` PR (full suite runs), then a tag on `main`.
+
 ## Before opening a pull request
 
 ```bash

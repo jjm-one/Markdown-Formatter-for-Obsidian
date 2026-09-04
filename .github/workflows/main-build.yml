@@ -1,6 +1,7 @@
-name: Main development build
+name: Rolling development build
 
-# After a green CI run on main, publish the mutable "main-latest" development prerelease.
+# After a green CI run on `main` or `develop`, publish that channel's mutable
+# "<branch>-latest" development prerelease.
 
 on:
   workflow_run:
@@ -12,34 +13,46 @@ permissions:
   contents: read
 
 concurrency:
-  group: main-development-build
+  group: rolling-build-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    name: Publish latest main build
+    name: Publish rolling build
     if: >-
       ${{
         github.event_name == 'workflow_dispatch' ||
-        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         (github.event.workflow_run.head_branch == 'main' ||
+          github.event.workflow_run.head_branch == 'develop'))
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: write # force-move the main-latest tag and publish its prerelease
+      contents: write # force-move the <channel>-latest tag and publish its prerelease
       id-token: write # sign the build provenance
       attestations: write # record the build provenance
-    env:
-      ROLLING_TAG: main-latest
 
     steps:
-      # Always builds the current tip of `main` (a trusted ref). The workflow_run
-      # trigger only gates *when* to publish, via the job `if:` above — the
-      # triggering run's head SHA is never checked out.
-      - name: Checkout main
+      - name: Resolve channel
+        id: channel
+        shell: bash
+        env:
+          BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+        run: |
+          case "$BRANCH" in
+            main | develop) echo "name=$BRANCH" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported branch for a rolling build: $BRANCH" >&2; exit 1 ;;
+          esac
+
+      # Builds the current tip of the channel branch (a trusted, protected ref).
+      # The workflow_run trigger only gates *when* to publish, via the job `if:`
+      # above — the triggering run's head SHA is never checked out.
+      - name: Checkout ${{ steps.channel.outputs.name }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ steps.channel.outputs.name }}
           fetch-depth: 0
 
       - name: Resolve source commit
@@ -65,15 +78,16 @@ jobs:
         id: version
         shell: bash
         env:
+          CHANNEL: ${{ steps.channel.outputs.name }}
           SHORT_SHA: ${{ steps.source.outputs.short_sha }}
         run: |
           BASE_VERSION="$(node -p "require('./package.json').version")"
-          # Keep the result valid SemVer: 0.1.0 -> 0.1.0-main.N.sha; a pre-release
-          # base extends with a dot (0.1.0-beta.1 -> 0.1.0-beta.1.main.N.sha).
+          # Keep the result valid SemVer: 0.1.0 -> 0.1.0-develop.N.sha; a pre-release
+          # base extends with a dot (0.1.0-beta.1 -> 0.1.0-beta.1.develop.N.sha).
           if [[ "$BASE_VERSION" == *-* ]]; then
-            BUILD_VERSION="${BASE_VERSION}.main.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
+            BUILD_VERSION="${BASE_VERSION}.${CHANNEL}.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
           else
-            BUILD_VERSION="${BASE_VERSION}-main.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
+            BUILD_VERSION="${BASE_VERSION}-${CHANNEL}.${GITHUB_RUN_NUMBER}.${SHORT_SHA}"
           fi
           echo "build_version=$BUILD_VERSION" >> "$GITHUB_OUTPUT"
 
@@ -87,6 +101,7 @@ jobs:
 
       - name: Package development snapshot
         env:
+          BUILD_CHANNEL: ${{ steps.channel.outputs.name }}
           BUILD_VERSION: ${{ steps.version.outputs.build_version }}
           BUILD_SHA: ${{ steps.source.outputs.head_sha }}
           BUILD_RUN: ${{ github.run_id }}
@@ -95,7 +110,7 @@ jobs:
       - name: Upload immutable commit artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: markdown-formatter-main-${{ steps.source.outputs.short_sha }}
+          name: markdown-formatter-${{ steps.channel.outputs.name }}-${{ steps.source.outputs.short_sha }}
           path: main-build/
           if-no-files-found: error
           retention-days: 30
@@ -109,18 +124,20 @@ jobs:
             main-build/main.js
             main-build/markdown-formatter-cli.cjs
             main-build/manifest.json
-            main-build/markdown-formatter-main.zip
+            main-build/markdown-formatter-${{ steps.channel.outputs.name }}.zip
             main-build/build-info.json
 
       - name: Stage provenance as a release asset
         if: ${{ steps.provenance.outputs.bundle-path != '' }}
         env:
           BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
-        run: cp "$BUNDLE_PATH" main-build/markdown-formatter-main.intoto.jsonl
+          CHANNEL: ${{ steps.channel.outputs.name }}
+        run: cp "$BUNDLE_PATH" "main-build/markdown-formatter-${CHANNEL}.intoto.jsonl"
 
-      - name: Update rolling main tag
+      - name: Update rolling tag
         shell: bash
         env:
+          ROLLING_TAG: ${{ steps.channel.outputs.name }}-latest
           HEAD_SHA: ${{ steps.source.outputs.head_sha }}
         run: |
           git tag -f "$ROLLING_TAG" "$HEAD_SHA"
@@ -129,33 +146,35 @@ jobs:
       - name: Publish rolling development prerelease
         env:
           GH_TOKEN: ${{ github.token }}
+          CHANNEL: ${{ steps.channel.outputs.name }}
+          ROLLING_TAG: ${{ steps.channel.outputs.name }}-latest
           BUILD_VERSION: ${{ steps.version.outputs.build_version }}
           HEAD_SHA: ${{ steps.source.outputs.head_sha }}
         shell: bash
         run: |
-          cat > /tmp/main-release-notes.md <<NOTES
-          # Latest successful build of main
+          cat > /tmp/rolling-release-notes.md <<NOTES
+          # Latest successful build of \`$CHANNEL\`
 
           **Development build — not a stable release.**
 
           - Development version: \`$BUILD_VERSION\`
           - Source commit: \`$HEAD_SHA\`
-          - Source branch: \`main\`
+          - Source branch: \`$CHANNEL\`
           - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
-          This prerelease is updated after a successful CI run on \`main\`. Its tag and assets are intentionally mutable. For reproducible installs, choose a versioned release instead.
+          This prerelease is updated after a successful CI run on \`$CHANNEL\`. Its tag and assets are intentionally mutable. For reproducible installs, choose a versioned release instead.
           NOTES
 
           if gh release view "$ROLLING_TAG" >/dev/null 2>&1; then
             gh release edit "$ROLLING_TAG" \
-              --title "Latest main build" \
-              --notes-file /tmp/main-release-notes.md \
+              --title "Latest $CHANNEL build" \
+              --notes-file /tmp/rolling-release-notes.md \
               --prerelease
           else
             gh release create "$ROLLING_TAG" \
               --verify-tag \
-              --title "Latest main build" \
-              --notes-file /tmp/main-release-notes.md \
+              --title "Latest $CHANNEL build" \
+              --notes-file /tmp/rolling-release-notes.md \
               --prerelease
           fi
 
@@ -168,6 +187,6 @@ jobs:
             main-build/LICENSE \
             main-build/THIRD_PARTY_NOTICES.md \
             main-build/build-info.json \
-            main-build/markdown-formatter-main.zip \
+            "main-build/markdown-formatter-${CHANNEL}.zip" \
             main-build/*.intoto.jsonl \
             --clobber

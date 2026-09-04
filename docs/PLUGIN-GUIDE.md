@@ -116,13 +116,13 @@ To update later, download the newer ZIP and replace the folder contents.
 
 ### Option C — Latest development build
 
-Every successful CI run on `main` publishes a rolling **`main-latest`** prerelease. It is intentionally mutable and meant for testing the newest code, not for stable use. Manually extract `markdown-formatter-main.zip` from that prerelease into the plugin folder as in Option B:
+Every successful CI run publishes a rolling prerelease per branch: **`develop-latest`** (active development, least stable) and **`main-latest`** (last merged to `main`). Both are mutable and meant for testing the newest code, not for stable use. Manually extract `markdown-formatter-<channel>.zip` from the prerelease into the plugin folder as in Option B:
 
 ```text
-https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/main-latest/markdown-formatter-main.zip
+https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/develop-latest/markdown-formatter-develop.zip
 ```
 
-Its manifest version is stamped `0.1.0.main.<run>.<sha>`, and the archived `build-info.json` records the exact source commit.
+Its manifest version is stamped `0.1.0-<channel>.<run>.<sha>`, and the archived `build-info.json` records the exact source commit.
 
 ---
 

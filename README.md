@@ -42,7 +42,7 @@ Reference:
 
 **Manual.** Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases) into `<Vault>/.obsidian/plugins/markdown-formatter/`, reload Obsidian, and enable it.
 
-Full walkthrough and the rolling `main-latest` development channel: **[Obsidian plugin guide → Installing](docs/PLUGIN-GUIDE.md#installing-the-plugin)**.
+Full walkthrough and the rolling `develop-latest` / `main-latest` development channels: **[Obsidian plugin guide → Installing](docs/PLUGIN-GUIDE.md#installing-the-plugin)**.
 
 ## Use the CLI
 
@@ -100,7 +100,7 @@ Run the suite with `npm test`. See [Testing](docs/TESTING.md), [Architecture](do
 
 ## Releases & automation
 
-Releases are GitHub Releases from SemVer tags (no `v` prefix; tags with a pre-release suffix such as `-alpha` or `-beta` publish as pre-releases), built and attested by an automated workflow that attaches `main.js`, `manifest.json`, `styles.css`, and the standalone CLI. A rolling `main-latest` prerelease tracks the newest successful `main` build.
+Releases are GitHub Releases from SemVer tags (no `v` prefix; tags with a pre-release suffix such as `-alpha` or `-beta` publish as pre-releases), built and attested by an automated workflow that attaches `main.js`, `manifest.json`, `styles.css`, and the standalone CLI. Rolling `develop-latest` and `main-latest` prereleases track the newest successful build of each branch.
 
 Supply-chain hardening:
 
