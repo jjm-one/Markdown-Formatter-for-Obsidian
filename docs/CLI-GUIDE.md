@@ -52,7 +52,7 @@ curl -fsSL -o markdown-formatter-cli.cjs \
 node markdown-formatter-cli.cjs --version
 ```
 
-Pin a specific version tag rather than "latest" so your results don't shift under you. The rolling `main-latest` tag always holds the CLI from the newest successful `main` build (mutable — testing only):
+Pin a specific version tag rather than "latest" so your results don't shift under you. The rolling `develop-latest` and `main-latest` tags hold the CLI from the newest successful build of each branch (mutable — testing only):
 
 ```bash
 curl -fsSL -o markdown-formatter-cli.cjs \
@@ -230,7 +230,7 @@ docker build -t markdown-formatter --build-arg VERSION=0.1.0 examples/docker
 docker run --rm -v "$PWD:/workspace" markdown-formatter check .   # or: format .
 ```
 
-`VERSION` accepts any release tag or `main-latest`. The container runs as the unprivileged `node` user; add `--user "$(id -u):$(id -g)"` if `format` can't write your mounted files.
+`VERSION` accepts any release tag, `main-latest`, or `develop-latest`. The container runs as the unprivileged `node` user; add `--user "$(id -u):$(id -g)"` if `format` can't write your mounted files.
 
 ## npm package
 

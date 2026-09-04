@@ -1,9 +1,10 @@
 name: Dependency Review
 
-# Block a pull request that adds a dependency with a known high-severity advisory.
+# Block a pull request into main that adds a dependency with a known high-severity advisory.
 
 on:
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read

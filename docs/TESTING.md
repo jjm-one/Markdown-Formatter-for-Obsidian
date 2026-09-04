@@ -117,7 +117,7 @@ npm run build:fuzz    # only write fuzz/core.cjs (git-ignored), for a custom jaz
 
 `.github/workflows/fuzz.yml`:
 
-- **pull requests** touching `src/core/**`, `fuzz/**`, or `package-lock.json` replay `fuzz/corpus/` once (`-runs=0`) — deterministic, so a failure is a real regression, not a fuzzing flake;
+- **pull requests into `main`** touching `src/core/**`, `fuzz/**`, or `package-lock.json` replay `fuzz/corpus/` once (`-runs=0`) — deterministic, so a failure is a real regression, not a fuzzing flake;
 - the **weekly run** and manual dispatch explore for new inputs (~10 min / ~2 min), seeded from the corpus; crash, timeout, and slow-unit inputs upload as an artifact.
 
 `.clusterfuzzlite/` is a ready OSS-Fuzz build integration, not run in CI.
