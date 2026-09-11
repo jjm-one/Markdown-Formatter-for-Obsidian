@@ -26,6 +26,8 @@ function options(mode: "check" | "format", root: string, overrides: Record<strin
     verbosity: "quiet" as const,
     showErrors: false,
     maxDiagnostics: 20,
+    showChanges: false,
+    reportFormat: "text" as const,
     ...overrides,
   };
 }

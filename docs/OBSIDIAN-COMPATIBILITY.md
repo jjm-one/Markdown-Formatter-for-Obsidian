@@ -36,4 +36,4 @@ The full list and rationale: [Configuration → markdownlint](CONFIGURATION.md#m
 
 ## Regression guard
 
-`npm run check:obsidian` verifies that the project schema, example configuration, and source defaults continue to preserve the compatibility-sensitive constructs. CI runs this check for every push and pull request.
+`npm run check:obsidian` verifies that the project schema, example configuration, and source defaults continue to preserve the compatibility-sensitive constructs. CI runs this check on every pull request and on every push to `main` or `develop`.

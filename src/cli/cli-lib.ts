@@ -19,8 +19,12 @@ import {
   type ProjectConfig,
   validateProjectConfig,
 } from "../core";
+import { createFormattingChanges, type FormattingChange } from "./changes";
+import { REPORT_FORMATS, type ReportFormat } from "./report";
 
 export { errorMessage } from "../core";
+export type { FormattingChange } from "./changes";
+export type { ReportFormat } from "./report";
 
 export type CliMode = "check" | "format";
 export type CliVerbosity = "quiet" | "normal" | "verbose" | "debug";
@@ -44,6 +48,9 @@ export interface CliOptions {
   verbosity: CliVerbosity;
   showErrors: boolean;
   maxDiagnostics: number;
+  showChanges: boolean;
+  reportFile?: string;
+  reportFormat: ReportFormat;
 }
 
 export interface FormattingDiagnostic {
@@ -57,6 +64,8 @@ export interface CliFileResult {
   file: string;
   status: CliFileStatus;
   diagnostics: FormattingDiagnostic[];
+  /** Descriptive list of required changes; populated when `--show-changes` or `--report-file` is set. */
+  changes?: FormattingChange[];
 }
 
 export interface CliFailure {
@@ -93,6 +102,10 @@ export function parseCliArgs(argv: string[], cwd = process.cwd()): CliOptions {
   let verbosity: CliVerbosity = "normal";
   let showErrors = false;
   let maxDiagnostics = 20;
+  let showChanges = false;
+  let reportFile: string | undefined;
+  let reportFormat: ReportFormat = "text";
+  let reportFormatSet = false;
 
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i] ?? "";
@@ -132,6 +145,26 @@ export function parseCliArgs(argv: string[], cwd = process.cwd()): CliOptions {
       i += 1;
       continue;
     }
+    if (arg === "--show-changes" || arg === "--changes") {
+      showChanges = true;
+      continue;
+    }
+    if (arg === "--report-file") {
+      reportFile = requireOptionValue(rest, i, "--report-file");
+      i += 1;
+      continue;
+    }
+    if (arg === "--report-format") {
+      const value = requireOptionValue(rest, i, "--report-format");
+      if (!isReportFormat(value))
+        throw new Error(
+          `Invalid --report-format value: ${value}. Expected ${REPORT_FORMATS.join(", ")}.`,
+        );
+      reportFormat = value;
+      reportFormatSet = true;
+      i += 1;
+      continue;
+    }
     if (arg === "--config") {
       configPath = requireOptionValue(rest, i, "--config");
       i += 1;
@@ -156,6 +189,10 @@ export function parseCliArgs(argv: string[], cwd = process.cwd()): CliOptions {
     rootSet = true;
   }
 
+  if (reportFormatSet && reportFile === undefined) {
+    throw new Error("--report-format requires --report-file.");
+  }
+
   return {
     mode: modeArg,
     root: path.resolve(root),
@@ -165,6 +202,9 @@ export function parseCliArgs(argv: string[], cwd = process.cwd()): CliOptions {
     verbosity,
     showErrors,
     maxDiagnostics,
+    showChanges,
+    reportFile: reportFile === undefined ? undefined : path.resolve(cwd, reportFile),
+    reportFormat,
   };
 }
 
@@ -283,6 +323,7 @@ export async function runStandalone(options: CliOptions): Promise<CliResult> {
   const entries: CliFileResult[] = [];
   const failures: CliFailure[] = [];
   const changedFiles: string[] = [];
+  const wantsChanges = options.showChanges || options.reportFile !== undefined;
 
   for (const file of files) {
     const relative = normalizeRelative(path.relative(options.root, file));
@@ -313,17 +354,18 @@ export async function runStandalone(options: CliOptions): Promise<CliResult> {
     const diagnostics = options.showErrors
       ? createFormattingDiagnostics(original, formatted, options.maxDiagnostics)
       : [];
+    const changes = wantsChanges ? createFormattingChanges(original, formatted) : [];
     if (options.mode === "check") {
-      entries.push({ file: relative, status: "needs-formatting", diagnostics });
+      entries.push({ file: relative, status: "needs-formatting", diagnostics, changes });
       continue;
     }
 
     try {
       await writeFileAtomically(file, formatted);
-      entries.push({ file: relative, status: "formatted", diagnostics });
+      entries.push({ file: relative, status: "formatted", diagnostics, changes });
     } catch (error) {
       failures.push({ file: relative, stage: "write", message: errorMessage(error) });
-      entries.push({ file: relative, status: "failed", diagnostics });
+      entries.push({ file: relative, status: "failed", diagnostics, changes });
     }
   }
 
@@ -500,6 +542,16 @@ function validateCliOptions(options: CliOptions): void {
   ) {
     throw new Error("maxDiagnostics must be an integer between 1 and 1000.");
   }
+  if (!isReportFormat(options.reportFormat))
+    throw new Error(`Unsupported report format: ${String(options.reportFormat)}.`);
+  if (
+    options.reportFile !== undefined &&
+    (typeof options.reportFile !== "string" ||
+      options.reportFile.trim().length === 0 ||
+      options.reportFile.includes("\0"))
+  ) {
+    throw new Error("reportFile must be a non-empty string without NUL characters.");
+  }
 }
 
 function requireOptionValue(args: string[], index: number, option: string): string {
@@ -511,6 +563,10 @@ function requireOptionValue(args: string[], index: number, option: string): stri
 
 function isVerbosity(value: unknown): value is CliVerbosity {
   return value === "quiet" || value === "normal" || value === "verbose" || value === "debug";
+}
+
+function isReportFormat(value: string): value is ReportFormat {
+  return (REPORT_FORMATS as readonly string[]).includes(value);
 }
 
 /** Resolve `value` against `root` and reject anything that escapes it (path traversal guard). */
