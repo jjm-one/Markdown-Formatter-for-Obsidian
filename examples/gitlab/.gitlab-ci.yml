@@ -1,4 +1,6 @@
-# Example: fail a GitLab pipeline when the vault's Markdown is not formatted.
+# Example: fail a GitLab pipeline when the vault's Markdown is not formatted, and
+# surface each required change in GitLab's Code Quality widget (merge request
+# diff annotations + the pipeline's Code Quality tab).
 # Add to your .gitlab-ci.yml and pin the release version in the URL.
 
 markdown-format:
@@ -9,4 +11,10 @@ markdown-format:
       curl -fsSL
       -o /tmp/markdown-formatter.cjs
       https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
-    - node /tmp/markdown-formatter.cjs check .
+    # `check` still fails the job (exit 1) when formatting is needed; the report
+    # is written regardless, so the Code Quality widget always reflects this run.
+    - node /tmp/markdown-formatter.cjs check . --report-file gl-code-quality-report.json --report-format gitlab
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json

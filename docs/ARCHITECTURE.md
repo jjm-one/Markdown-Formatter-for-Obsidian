@@ -6,7 +6,7 @@
 src/
   core/    config.ts · errors.ts · frontmatter.ts · ignore.ts · obsidian-syntax.ts · pipeline.ts · index.ts (barrel)
   plugin/  main.ts · settings.ts · settings-tab.ts
-  cli/     cli.ts · cli-lib.ts
+  cli/     cli.ts · cli-lib.ts · diff.ts · changes.ts · report.ts
 ```
 
 ## Shared formatter core
@@ -50,6 +50,8 @@ The persisted settings, the project configuration, and the ignore file are reloa
 6. return deterministic CI exit codes.
 
 The CLI does not follow directory symlinks and excludes `.git`, `.obsidian`, `.trash`, and `node_modules` by default.
+
+**Change reporting** (`--show-changes`, `--report-file`) is a separate concern layered on top of the same before/after text: `diff.ts` computes a line-level edit script (Myers' algorithm), `changes.ts` classifies each hunk into a human-readable change (trailing whitespace, indentation, inserted/removed lines, …), and `report.ts` renders that list as plain text or as one of two CI-native formats — GitLab Code Quality JSON or GitHub-compatible SARIF.
 
 ## Boundaries
 
