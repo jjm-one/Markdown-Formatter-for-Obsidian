@@ -14,6 +14,7 @@ import {
   LINK_MODES,
   OBSIDIAN_SYNTAX_MODES,
   PROSE_WRAP_MODES,
+  sanitizeAdditionalFileTypes,
   STRUCTURE_MODES,
   UPDATED_PROPERTY_PATTERN,
   type MarkdownLinkSettings,
@@ -40,6 +41,8 @@ export interface FormatterSettings {
   stampUpdatedProperty: boolean;
   /** Frontmatter key refreshed by {@link stampUpdatedProperty} (only if already present). */
   updatedProperty: string;
+  /** Opt-in extra extensions (no leading dot) also formatted, with no Obsidian-specific protection. */
+  additionalFileTypes: string[];
 }
 
 const DEFAULT_SETTINGS: FormatterSettings = {
@@ -59,6 +62,7 @@ const DEFAULT_SETTINGS: FormatterSettings = {
   markdownlintConfigJson: JSON.stringify(DEFAULT_MARKDOWNLINT_CONFIG, null, 2),
   stampUpdatedProperty: false,
   updatedProperty: DEFAULT_UPDATED_PROPERTY,
+  additionalFileTypes: [],
 };
 
 /** A fresh copy of the defaults, with nested objects cloned so callers can mutate them freely. */
@@ -68,6 +72,7 @@ export function cloneDefaultSettings(): FormatterSettings {
     markdownStructures: { ...DEFAULT_MARKDOWN_STRUCTURES },
     links: { ...DEFAULT_LINK_SETTINGS },
     obsidianSyntax: { ...DEFAULT_OBSIDIAN_SYNTAX },
+    additionalFileTypes: [...DEFAULT_SETTINGS.additionalFileTypes],
   };
 }
 
@@ -127,6 +132,7 @@ export function normalizePluginSettings(value: unknown): FormatterSettings {
     markdownlintConfigJson,
     stampUpdatedProperty: bool(loaded.stampUpdatedProperty, defaults.stampUpdatedProperty),
     updatedProperty,
+    additionalFileTypes: sanitizeAdditionalFileTypes(loaded.additionalFileTypes),
   };
 }
 

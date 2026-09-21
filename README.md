@@ -34,6 +34,7 @@ Reference:
 - Resolves `.editorconfig` and trusted Prettier configuration per note, and applies configurable markdownlint fixes.
 - Reads a committed vault-level `.markdown-formatter.json` policy and a gitignore-style `.markdown-formatter-ignore`, both shared by the plugin and the CLI.
 - Preserves Obsidian syntax by default: Properties/frontmatter, wikilinks, embeds, callouts, block IDs, comments, MathJax, tags, inline footnotes, highlights, and fenced code blocks.
+- Opt-in formatting for non-Markdown vault files (JSON, YAML, CSS, HTML, GraphQL, XML/BPMN, TOML, PHP, SQL, …) via `additionalFileTypes` — an allowlist, so binary files are never touched.
 - Every configuration source reloads automatically — no Obsidian restart needed.
 
 ## Install the plugin

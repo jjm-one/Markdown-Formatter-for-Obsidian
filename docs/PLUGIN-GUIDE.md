@@ -2,7 +2,7 @@
 
 A step-by-step guide to installing, setting up, and using **Markdown Formatter** in Obsidian. No prior experience with formatters, linters, or config files is assumed.
 
-If you just want a quick start: install the plugin, open a note, and run the command **Markdown Formatter: Format current Markdown file**. Everything else on this page is optional.
+If you just want a quick start: install the plugin, open a note, and run the command **Markdown Formatter: Format current file**. Everything else on this page is optional.
 
 ---
 
@@ -23,6 +23,7 @@ If you just want a quick start: install the plugin, open a note, and run the com
     - [Project configuration](#project-configuration)
     - [Formatting triggers](#formatting-triggers)
     - [Formatter](#formatter)
+    - [Additional file types](#additional-file-types)
     - [Note properties](#note-properties)
     - [Markdown structure formatting](#markdown-structure-formatting)
     - [Link formatting](#link-formatting)
@@ -130,7 +131,7 @@ Its manifest version is stamped `0.1.0-<channel>.<run>.<sha>`, and the archived 
 
 1. Open any Markdown note.
 2. Open the command palette: `Ctrl + P` (Windows/Linux) or `Cmd + P` (macOS).
-3. Run **Markdown Formatter: Format current Markdown file**.
+3. Run **Markdown Formatter: Format current file**.
 
 You will see a small notice in the corner:
 
@@ -146,11 +147,11 @@ Nothing is formatted automatically until you turn on one of the automatic modes 
 
 All of these do the same thing to the **currently active note**:
 
-| Method          | How                                                                                                 |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| Command palette | `Ctrl/Cmd + P` → _Format current Markdown file_                                                     |
-| Ribbon button   | Click the **wand** icon in the left sidebar                                                         |
-| Hotkey          | **Settings → Hotkeys**, search "Markdown Formatter", assign a key to _Format current Markdown file_ |
+| Method          | How                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Command palette | `Ctrl/Cmd + P` → _Format current file_                                                     |
+| Ribbon button   | Click the **wand** icon in the left sidebar                                                |
+| Hotkey          | **Settings → Hotkeys**, search "Markdown Formatter", assign a key to _Format current file_ |
 
 The ribbon button can be hidden — see [Formatting triggers → Show ribbon button](#formatting-triggers).
 
@@ -216,6 +217,26 @@ See [Sharing one set of rules with other people](#sharing-one-set-of-rules-with-
 | **Use project Prettier and EditorConfig settings** | On       | Also read any `.editorconfig` or Prettier config file that applies to the note (for indent size, line endings, etc.). If you have no such files, this does nothing. Turn off only if a config file is producing output you don't want.      |
 | **Prose wrapping**                                 | Preserve | What to do with long paragraphs of text. **Preserve**: leave your line breaks exactly as they are (recommended). **Always wrap**: hard-wrap paragraphs at the configured width. **Never wrap**: join wrapped paragraphs into one long line. |
 
+### Additional file types
+
+By default only `.md` notes are formatted. Check any of these boxes to also format that extension wherever a trigger applies — the manual command, ribbon, continuous formatting, and format on file open. They get plain Prettier formatting; Obsidian-specific protections (frontmatter, wikilinks, callouts, and so on) don't apply because they are Markdown-only concepts.
+
+| Extension(s)                                     | Formatted as                                              |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `json`, `json5`, `jsonc`, `canvas`, `excalidraw` | JSON (Canvas and Excalidraw drawings are both plain JSON) |
+| `yaml`, `yml`                                    | YAML                                                      |
+| `css`, `less`, `scss`                            | CSS / LESS / SCSS                                         |
+| `html`, `htm`                                    | HTML                                                      |
+| `graphql`, `gql`                                 | GraphQL                                                   |
+| `xml`, `bpmn`                                    | XML (BPMN 2.0 is an XML dialect)                          |
+| `toml`                                           | TOML                                                      |
+| `php`                                            | PHP                                                       |
+| `sql`                                            | SQL                                                       |
+
+Nothing outside this list is ever read or written — every binary format (`.png`, `.docx`, `.pdf`, and so on) is unaffected no matter what is checked. Two triggers stay Markdown-only regardless of this setting: **Format on file close** (Obsidian only tracks which Markdown views are open) and the **updated-date property** (frontmatter doesn't exist outside Markdown).
+
+TOML, PHP, and SQL formatting is provided by third-party Prettier plugins bundled straight into the plugin file — nothing extra to install. The tradeoff is size: those three plugins' parsing engines add roughly 39MB to the plugin (mostly one WASM-based TOML engine), so `main.js` is noticeably larger than a Markdown-only formatter would need. This only affects install size, not formatting speed.
+
 ### Note properties
 
 | Setting                               | Default   | Meaning                                                                                                                                                                                                                                                                                                                                           |
@@ -276,7 +297,7 @@ Open the command palette (`Ctrl/Cmd + P`) and type "Markdown Formatter".
 
 | Command                               | What it does                                                                                                                                                                                             |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Format current Markdown file**      | Formats the active note. Safe to assign a hotkey.                                                                                                                                                        |
+| **Format current file**               | Formats the active note (or an allowlisted [additional file type](#additional-file-types)). Safe to assign a hotkey.                                                                                     |
 | **Create project configuration file** | Writes `.markdown-formatter.json` into your vault, seeded with your current settings, so you can commit it. From then on the settings tab reads and writes that file. Does nothing if it already exists. |
 | **Reload project configuration**      | Re-reads that file. Usually automatic — use this only to force it.                                                                                                                                       |
 | **Create formatting ignore file**     | Creates a starter `.markdown-formatter-ignore` file with commented examples.                                                                                                                             |
@@ -368,7 +389,7 @@ It is desktop-only — it will not appear on mobile. On desktop, make sure the f
 Your Obsidian is likely older than 1.13.7. Update Obsidian (**Settings → About**).
 
 **Nothing happens when I run the format command.**
-Check the note is a `.md` file and is the active tab. If you see "excluded from formatting", it matches a line in your ignore file. If you see a message about invalid configuration, fix `.markdown-formatter.json` and reload it.
+Check the active tab is a `.md` file, or a file type checked under [Additional file types](#additional-file-types), and that it's the active tab. If you see "excluded from formatting", it matches a line in your ignore file. If you see a message about invalid configuration, fix `.markdown-formatter.json` and reload it.
 
 **Continuous formatting interrupts my writing.**
 Increase **Debounce** (e.g. to 3000 ms), or turn off _Continuous formatting_ and use _Format on file close_.

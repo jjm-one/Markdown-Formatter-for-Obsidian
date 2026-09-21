@@ -46,7 +46,7 @@ describe("Obsidian plugin integration", () => {
       (c: any) => c.id === "format-current-markdown-file",
     );
     await command.callback();
-    expect((Notice as any).messages.at(-1)).toBe("No Markdown file is active.");
+    expect((Notice as any).messages.at(-1)).toBe("No formattable file is active.");
   });
 
   it("continuous formatting debounces repeated modify events", async () => {
@@ -474,7 +474,7 @@ describe("Obsidian plugin integration", () => {
     const env = createFakeApp({ files: { "image.png": "binary-ish" } });
     await env.plugin.onload();
     await expect(env.plugin.formatFile(file, true)).resolves.toBeUndefined();
-    expect((Notice as any).messages.at(-1)).toBe("Only Markdown files can be formatted.");
+    expect((Notice as any).messages.at(-1)).toBe("This file type is not set up for formatting.");
   });
 
   it("blocks formatting if the ignore file becomes unreadable", async () => {
@@ -497,5 +497,90 @@ describe("Obsidian plugin integration", () => {
     await env.plugin.formatFile(file, true);
     expect(env.files.get("active.md")).toBe("#   unchanged\n");
     expect((Notice as any).messages.at(-1)).toContain("ignore file could not be loaded");
+  });
+});
+
+describe("Obsidian plugin: additional file types", () => {
+  it("manual command formats an allowlisted non-Markdown file", async () => {
+    const file = new TFile("board.json");
+    const { plugin, files } = createFakeApp({
+      files: { "board.json": '{"a":1}' },
+      activeFile: file,
+    });
+    await plugin.onload();
+    plugin.settings.additionalFileTypes = ["json"];
+    const command = (plugin as any).commands.find(
+      (c: any) => c.id === "format-current-markdown-file",
+    );
+    await command.callback();
+    expect(files.get("board.json")).toBe('{ "a": 1 }\n');
+  });
+
+  it("never formats a binary file even when it matches no allowlist entry", async () => {
+    (Notice as any).messages.length = 0;
+    const file = new TFile("photo.png");
+    const { plugin, files } = createFakeApp({
+      files: { "photo.png": "binary-ish" },
+      activeFile: file,
+    });
+    await plugin.onload();
+    plugin.settings.additionalFileTypes = ["json", "xml", "yaml"];
+    const command = (plugin as any).commands.find(
+      (c: any) => c.id === "format-current-markdown-file",
+    );
+    await command.callback();
+    expect(files.get("photo.png")).toBe("binary-ish");
+    expect((Notice as any).messages.at(-1)).toBe("No formattable file is active.");
+  });
+
+  it("formats an allowlisted non-Markdown file on open when formatOnOpen is enabled", async () => {
+    const file = new TFile("data.yaml");
+    const { plugin, emitWorkspace } = createFakeApp({ files: { "data.yaml": "a:   1\n" } });
+    await plugin.onload();
+    plugin.settings.formatOnOpen = true;
+    plugin.settings.additionalFileTypes = ["yaml"];
+    const spy = vi.spyOn(plugin, "formatFile").mockResolvedValue();
+    await emitWorkspace("file-open", file);
+    expect(spy).toHaveBeenCalledWith(file, false);
+  });
+
+  it("does not format-on-open a file whose extension is not allowlisted", async () => {
+    const file = new TFile("data.yaml");
+    const { plugin, emitWorkspace } = createFakeApp({ files: { "data.yaml": "a:   1\n" } });
+    await plugin.onload();
+    plugin.settings.formatOnOpen = true;
+    const spy = vi.spyOn(plugin, "formatFile").mockResolvedValue();
+    await emitWorkspace("file-open", file);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("does not extend format-on-close to non-Markdown files, even when allowlisted", async () => {
+    const file = new TFile("data.json");
+    const env = createFakeApp({ files: { "data.json": '{"a":1}' } });
+    await env.plugin.onload();
+    env.plugin.settings.formatOnClose = true;
+    env.plugin.settings.additionalFileTypes = ["json"];
+    const spy = vi.spyOn(env.plugin, "formatFile").mockResolvedValue();
+
+    // `getOpenMarkdownFilePaths`/format-on-close only ever track Markdown views, so a
+    // non-Markdown file was never in `openMarkdownFiles` to begin with; this documents
+    // that layout changes never trigger formatting for it.
+    await env.emitWorkspace("file-open", file);
+    await env.emitWorkspace("layout-change");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("never stamps the updated-date property on a non-Markdown file", async () => {
+    const file = new TFile("data.json");
+    const { plugin, files } = createFakeApp({
+      files: { "data.json": '{"a":1}' },
+      activeFile: file,
+    });
+    await plugin.onload();
+    plugin.settings.additionalFileTypes = ["json"];
+    plugin.settings.stampUpdatedProperty = true;
+    plugin.settings.updatedProperty = "updated";
+    await plugin.formatFile(file, true);
+    expect(files.get("data.json")).toBe('{ "a": 1 }\n');
   });
 });

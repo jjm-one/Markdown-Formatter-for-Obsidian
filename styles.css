@@ -4,3 +4,17 @@
   min-height: 10rem;
   font-family: var(--font-monospace);
 }
+
+/* The additional-file-types checkbox list in the settings tab. */
+.markdown-formatter-additional-file-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.markdown-formatter-additional-file-type {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-monospace);
+}

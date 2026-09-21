@@ -51,8 +51,12 @@
     "verify:main-build": "node scripts/verify-main-build.mjs"
   },
   "dependencies": {
+    "@prettier/plugin-php": "0.25.0",
+    "@prettier/plugin-xml": "3.4.2",
     "markdownlint": "0.41.1",
-    "prettier": "3.9.6"
+    "prettier": "3.9.6",
+    "prettier-plugin-sql": "0.20.0",
+    "prettier-plugin-toml": "2.0.6"
   },
   "devDependencies": {
     "@jazzer.js/core": "4.0.0",

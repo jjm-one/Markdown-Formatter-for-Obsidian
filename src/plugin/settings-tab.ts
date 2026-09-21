@@ -19,7 +19,9 @@ import {
   LINK_MODES,
   OBSIDIAN_SYNTAX_MODES,
   PROSE_WRAP_MODES,
+  sanitizeAdditionalFileTypes,
   STRUCTURE_MODES,
+  SUPPORTED_EXTRA_EXTENSIONS,
   UPDATED_PROPERTY_PATTERN,
   type MarkdownLinkSettings,
   type MarkdownStructureSettings,
@@ -201,6 +203,32 @@ export class FormatterSettingTab extends PluginSettingTab {
       },
       {
         type: "group" as const,
+        heading: "Additional file types",
+        items: [
+          {
+            name: "Format non-Markdown files",
+            desc: "Opt in per extension to also format these vault files wherever a trigger applies (manual command, ribbon, continuous formatting, format on open). They get plain Prettier formatting with no Obsidian-specific protection. Format on close and the updated-date property stay Markdown-only. Any extension left unchecked here, including every binary format, is never read or written.",
+            render: (setting: Setting) => {
+              const container = setting.controlEl.createDiv({
+                cls: "markdown-formatter-additional-file-types",
+              });
+              for (const ext of SUPPORTED_EXTRA_EXTENSIONS) {
+                const label = container.createEl("label", {
+                  cls: "markdown-formatter-additional-file-type",
+                });
+                const checkbox = label.createEl("input", { type: "checkbox" });
+                checkbox.checked = this.additionalFileTypesValue().includes(ext);
+                label.appendText(`.${ext}`);
+                checkbox.addEventListener("change", () => {
+                  void this.toggleAdditionalFileType(ext, checkbox.checked);
+                });
+              }
+            },
+          },
+        ],
+      },
+      {
+        type: "group" as const,
         heading: "Note properties",
         items: [
           {
@@ -347,6 +375,17 @@ export class FormatterSettingTab extends PluginSettingTab {
     ];
   }
 
+  /** The effective `additionalFileTypes` list: project-config override, then plugin setting. */
+  private additionalFileTypesValue(): string[] {
+    return sanitizeAdditionalFileTypes(this.getControlValue("additionalFileTypes"));
+  }
+
+  private async toggleAdditionalFileType(extension: string, enabled: boolean): Promise<void> {
+    const current = this.additionalFileTypesValue();
+    const next = enabled ? [...current, extension] : current.filter((item) => item !== extension);
+    await this.setControlValue("additionalFileTypes", next);
+  }
+
   /** Effective markdownlint config as JSON text: the project file's object, else the plugin's. */
   private markdownlintConfigText(): string {
     const project = this.plugin.getActiveProjectConfig();
@@ -483,6 +522,9 @@ function normalizeControlValue(key: string, value: unknown): unknown {
   if (key.startsWith("obsidianSyntax.")) {
     if (!oneOf(value, OBSIDIAN_SYNTAX_MODES)) throw new Error("Invalid Obsidian syntax mode.");
     return value;
+  }
+  if (key === "additionalFileTypes") {
+    return sanitizeAdditionalFileTypes(value);
   }
 
   throw new Error(`Unknown plugin setting: ${key}.`);

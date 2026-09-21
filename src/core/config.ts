@@ -7,6 +7,11 @@
  */
 
 import type * as prettier from "prettier";
+import {
+  isSupportedExtraExtension,
+  sanitizeAdditionalFileTypes,
+  SUPPORTED_EXTRA_EXTENSIONS,
+} from "./other-formats";
 
 // === Configuration model ===================================================
 
@@ -69,6 +74,13 @@ export type ProjectConfig = {
   stampUpdatedProperty?: boolean;
   /** Frontmatter key refreshed by {@link stampUpdatedProperty} (only if already present). */
   updatedProperty?: string;
+  /**
+   * Opt-in: also format files with these extensions (no leading dot), each run through
+   * Prettier's matching parser with no Obsidian-specific protection. Must be a subset of
+   * {@link SUPPORTED_EXTRA_EXTENSIONS} — every other extension, including any binary format,
+   * is never read or written regardless of this setting. Empty by default.
+   */
+  additionalFileTypes?: string[];
 };
 
 /** Fully-resolved settings for a single formatting run, after merging every configuration layer. */
@@ -89,6 +101,7 @@ export interface EffectiveSettings {
   ignore: IgnoreSettings;
   stampUpdatedProperty: boolean;
   updatedProperty: string;
+  additionalFileTypes: string[];
 }
 
 // === Defaults =============================================================
@@ -182,6 +195,7 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   ignore: { ...DEFAULT_IGNORE_SETTINGS },
   stampUpdatedProperty: false,
   updatedProperty: DEFAULT_UPDATED_PROPERTY,
+  additionalFileTypes: [],
 };
 
 // === Project configuration validation =====================================
@@ -208,6 +222,7 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
     "ignore",
     "stampUpdatedProperty",
     "updatedProperty",
+    "additionalFileTypes",
   ]);
   for (const key of Object.keys(config)) {
     if (!allowedKeys.has(key)) throw new Error(`Unknown project configuration option: ${key}.`);
@@ -270,6 +285,17 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
     throw new Error(
       "updatedProperty must be 1-64 letters, digits, spaces, hyphens, or underscores.",
     );
+  }
+
+  if (config.additionalFileTypes !== undefined) {
+    validateStringArray(config.additionalFileTypes, "additionalFileTypes");
+    for (const extension of config.additionalFileTypes) {
+      if (!isSupportedExtraExtension(extension)) {
+        throw new Error(
+          `additionalFileTypes: unsupported extension "${extension}". Supported: ${SUPPORTED_EXTRA_EXTENSIONS.join(", ")}.`,
+        );
+      }
+    }
   }
 
   if (config.markdownlint !== undefined && !isPlainObject(config.markdownlint))
@@ -367,5 +393,6 @@ export function effectiveSettingsFromProject(
     ignore: { ...DEFAULT_IGNORE_SETTINGS, ...(project?.ignore ?? {}) },
     stampUpdatedProperty: project?.stampUpdatedProperty ?? false,
     updatedProperty: project?.updatedProperty?.trim() || DEFAULT_UPDATED_PROPERTY,
+    additionalFileTypes: sanitizeAdditionalFileTypes(project?.additionalFileTypes ?? []),
   };
 }

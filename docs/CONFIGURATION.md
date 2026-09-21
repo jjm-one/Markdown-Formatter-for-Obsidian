@@ -160,6 +160,45 @@ and markdownlint do not fight each other:
 Set `runMarkdownlintFixes` to `false` to skip the markdownlint pass entirely and let
 Prettier be the only formatter.
 
+## Additional file types
+
+By default, only `.md` files are formatted. `additionalFileTypes` opts in specific non-Markdown extensions found in the vault/workspace, each run through Prettier's matching parser with no Obsidian-specific protection (no frontmatter, callout, or wikilink handling — those concepts don't apply outside Markdown):
+
+```json
+{
+  "additionalFileTypes": ["json", "yaml", "xml"]
+}
+```
+
+| Extension(s)                    | Parser                                        |
+| ------------------------------- | --------------------------------------------- |
+| `json`                          | JSON                                          |
+| `json5`                         | JSON5                                         |
+| `jsonc`                         | JSONC                                         |
+| `canvas`                        | JSON (Obsidian's Canvas format)               |
+| `excalidraw`                    | JSON (Excalidraw drawings are plain JSON too) |
+| `yaml`, `yml`                   | YAML                                          |
+| `css`                           | CSS                                           |
+| `less`                          | LESS                                          |
+| `scss`                          | SCSS                                          |
+| `html`, `htm`                   | HTML                                          |
+| `graphql`, `gql`                | GraphQL                                       |
+| `xml`, `bpmn` (BPMN 2.0 is XML) | XML, via the bundled `@prettier/plugin-xml`   |
+| `toml`                          | TOML, via the bundled `prettier-plugin-toml`  |
+| `php`                           | PHP, via the bundled `@prettier/plugin-php`   |
+| `sql`                           | SQL, via the bundled `prettier-plugin-sql`    |
+
+The list is a strict allowlist: any extension not named above, including every binary format (`.png`, `.docx`, `.pdf`, …), is never read or written by the formatter, regardless of what a project config or a typo asks for. `.editorconfig`/Prettier config resolution applies to these files exactly as it does to Markdown.
+
+> **Bundle size note.** `toml`, `php`, and `sql` are formatted by third-party Prettier plugins bundled directly into the plugin and CLI (no separate install needed), but they are not free: their underlying parsing engines add roughly 39MB to `main.js`/`markdown-formatter-cli.cjs` combined, over 30MB of which is `prettier-plugin-toml`'s embedded WASM engine alone. This has no effect on formatting speed or correctness, only on download/install size. If bundle size matters more than TOML/PHP/SQL support in your setup, leave those extensions out of `additionalFileTypes` — the code paths are simply never exercised, but the bytes are already in the shipped bundle.
+
+A few triggers stay Markdown-only by design, since they depend on Markdown-specific Obsidian concepts:
+
+- **Format on close** — Obsidian only reports which Markdown views are open, so there's no reliable way to know when a non-Markdown file's last view closes.
+- **The updated-date property** (`stampUpdatedProperty`) — frontmatter is a Markdown/Obsidian concept; other file types have nothing to stamp.
+
+Continuous formatting, format-on-open, the manual command, the ribbon button, and the standalone CLI all extend to `additionalFileTypes`.
+
 ## JSON Schema
 
 The repository contains `.markdown-formatter.schema.json` and `.markdown-formatter.example.json`. Editors with JSON Schema support can use the schema to validate project configuration before Obsidian loads it.

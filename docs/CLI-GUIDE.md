@@ -166,6 +166,7 @@ Ready-made workflows: [`examples/gitlab/.gitlab-ci.yml`](../examples/gitlab/.git
 ## Which files it looks at
 
 - Scans `.md` files recursively, in every sub-folder.
+- Also scans any extensions listed in the config's `additionalFileTypes` (e.g. `json`, `yaml`, `xml`) — see [Configuration → Additional file types](CONFIGURATION.md#additional-file-types). Off by default; any extension not in that allowlist, including every binary format, is never touched.
 - Never follows directory symlinks.
 - Always skips `.git`, `.obsidian`, `.trash`, and `node_modules`.
 - Reads `.markdown-formatter-ignore` from the folder root — same [pattern syntax](CONFIGURATION.md#formatting-exclusions) as the plugin.

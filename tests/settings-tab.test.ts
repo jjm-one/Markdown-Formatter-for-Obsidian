@@ -33,6 +33,28 @@ describe("settings tab controls", () => {
     expect((plugin as any).data.markdownStructures.tables).toBe("preserve");
   });
 
+  it("sanitizes additionalFileTypes and rejects unsupported or binary extensions", async () => {
+    const { plugin, tab } = await loadTab();
+    expect(tab.getControlValue("additionalFileTypes")).toEqual([]);
+
+    await tab.setControlValue("additionalFileTypes", ["JSON", "xml", "xml", ".yaml"]);
+    expect(plugin.settings.additionalFileTypes).toEqual(["json", "xml", "yaml"]);
+    expect(tab.getControlValue("additionalFileTypes")).toEqual(["json", "xml", "yaml"]);
+
+    // Unsupported/binary entries are silently dropped, never throw or reach settings.
+    await tab.setControlValue("additionalFileTypes", ["json", "png", "exe"]);
+    expect(plugin.settings.additionalFileTypes).toEqual(["json"]);
+  });
+
+  it("builds the additional-file-types checkbox row without a browser DOM", async () => {
+    const { tab } = await loadTab();
+    const group = (
+      tab.getSettingDefinitions() as { heading: string; items: { render?: unknown }[] }[]
+    ).find((g) => g.heading === "Additional file types");
+    expect(group?.items).toHaveLength(1);
+    expect(typeof group?.items[0]?.render).toBe("function");
+  });
+
   it("clamps and rounds the debounce value", async () => {
     const { plugin, tab } = await loadTab();
     await tab.setControlValue("debounceMs", 5);

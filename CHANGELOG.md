@@ -10,10 +10,16 @@ All notable changes to this project will be documented in this file, following
 
 - CLI: `--show-changes` prints a descriptive, line-referenced list of required changes (e.g. `line 12: Remove trailing whitespace.`) instead of raw before/after diffs.
 - CLI: `--report-file <path>` writes a change report, in `--report-format text` (default), `json`, `gitlab` (Code Quality / Code Climate JSON, for `artifacts: reports: codequality:`), or `sarif` (SARIF 2.1.0, for `github/codeql-action/upload-sarif`). The report always covers the full run, including read/format/write failures. New examples: `examples/gitlab/.gitlab-ci.yml` (Code Quality) and `examples/github-actions/markdown-format-report.yml` (SARIF).
+- Opt-in formatting for non-Markdown files: a new `additionalFileTypes` config key (plugin settings tab and `.markdown-formatter.json`/CLI) lists extensions — `json`, `json5`, `jsonc`, `canvas`, `excalidraw`, `yaml`, `yml`, `css`, `less`, `scss`, `html`, `htm`, `graphql`, `gql`, `xml`, `bpmn`, `toml`, `php`, `sql` — that also get plain Prettier formatting, with `.editorconfig`/Prettier config resolution applying exactly as it does for Markdown. Off by default; it is a strict allowlist, so any other extension, including every binary format, is never read or written. XML/BPMN, TOML, and PHP/SQL formatting are provided by the new `@prettier/plugin-xml`, `prettier-plugin-toml`, `@prettier/plugin-php`, and `prettier-plugin-sql` dependencies, bundled directly into the plugin and CLI. Format on close and the updated-date property remain Markdown-only, since both depend on Markdown-specific Obsidian concepts.
+
+### Known limitations
+
+- The `toml`/`php`/`sql` additional-file-type support adds roughly 39MB to `main.js`/`markdown-formatter-cli.cjs` combined, over 30MB of which is `prettier-plugin-toml`'s embedded WASM engine. This is a one-time bundle-size cost with no effect on formatting speed. Java support (`prettier-plugin-java`) was evaluated but not included: its `web-tree-sitter`-based parser needs separate `.wasm` asset files shipped alongside the bundle, which is incompatible with this project's single-file plugin/CLI distribution and was not feasible to verify inside Obsidian's sandboxed runtime.
 
 ### Changed
 
 - Pinned Node.js to `24.21.0`, the current "Krypton" LTS release (`.nvmrc`, `.node-version`). npm stays `11.19.0` — already the version 24.21.0 bundles.
+- Renamed the "Format current Markdown file" command/ribbon action to "Format current file", now that it also covers `additionalFileTypes`. The command ID is unchanged, so existing hotkey bindings still work.
 
 ## [0.1.0] - 2026-09-03
 

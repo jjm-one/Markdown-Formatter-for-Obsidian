@@ -15,6 +15,7 @@ import {
   effectiveSettingsFromProject,
   errorMessage,
   formatMarkdown,
+  formatOtherFile,
   parseIgnorePatterns,
   type ProjectConfig,
   validateProjectConfig,
@@ -234,16 +235,22 @@ export async function loadStandaloneProjectConfig(
   }
 }
 
-/** Recursively collect `.md` files under `root`, skipping symlinked directories and ignored paths. */
-export async function findMarkdownFiles(
+/**
+ * Recursively collect formattable files under `root` — `.md` plus any
+ * `extraExtensions` (from `additionalFileTypes`) — skipping symlinked
+ * directories and ignored paths.
+ */
+export async function findFormatterFiles(
   root: string,
   ignorePatterns: string[],
   hardExcludePatterns: string[] = [],
+  extraExtensions: readonly string[] = [],
 ): Promise<string[]> {
   const output: string[] = [];
   const hasNegatedPatterns = ignorePatterns.some((pattern) => pattern.trim().startsWith("!"));
   const userMatcher = createIgnoreMatcher(ignorePatterns);
   const hardExcludeMatcher = createIgnoreMatcher(hardExcludePatterns);
+  const extraSuffixes = extraExtensions.map((extension) => `.${extension.toLowerCase()}`);
 
   async function walk(directory: string): Promise<void> {
     let entries: Dirent[];
@@ -265,7 +272,7 @@ export async function findMarkdownFiles(
         await walk(absolute);
       } else if (
         entry.isFile() &&
-        entry.name.toLowerCase().endsWith(".md") &&
+        hasFormattableExtension(entry.name, extraSuffixes) &&
         !userMatcher.matches(relative)
       ) {
         output.push(absolute);
@@ -275,6 +282,11 @@ export async function findMarkdownFiles(
 
   await walk(root);
   return output;
+}
+
+function hasFormattableExtension(name: string, extraSuffixes: readonly string[]): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith(".md") || extraSuffixes.some((suffix) => lower.endsWith(suffix));
 }
 
 /** Read ignore patterns from a file inside `root`; a missing default file yields `[]`, a missing explicit one throws. */
@@ -319,7 +331,12 @@ export async function runStandalone(options: CliOptions): Promise<CliResult> {
     ...ignoreFilePatterns,
     ...options.extraExcludes,
   ];
-  const files = await findMarkdownFiles(options.root, ignorePatterns, [...DEFAULT_CLI_EXCLUDES]);
+  const files = await findFormatterFiles(
+    options.root,
+    ignorePatterns,
+    [...DEFAULT_CLI_EXCLUDES],
+    effective.additionalFileTypes,
+  );
   const entries: CliFileResult[] = [];
   const failures: CliFailure[] = [];
   const changedFiles: string[] = [];
@@ -338,7 +355,11 @@ export async function runStandalone(options: CliOptions): Promise<CliResult> {
 
     let formatted: string;
     try {
-      formatted = await formatMarkdown(original, file, effective);
+      const extension = path.extname(file).slice(1).toLowerCase();
+      formatted =
+        extension === "md"
+          ? await formatMarkdown(original, file, effective)
+          : await formatOtherFile(original, file, extension, effective);
     } catch (error) {
       failures.push({ file: relative, stage: "format", message: errorMessage(error) });
       entries.push({ file: relative, status: "failed", diagnostics: [] });

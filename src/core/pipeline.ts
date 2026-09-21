@@ -6,6 +6,10 @@
  */
 
 import * as prettier from "prettier";
+import xmlPlugin from "@prettier/plugin-xml";
+import tomlPlugin from "prettier-plugin-toml";
+import * as phpPluginModule from "@prettier/plugin-php";
+import sqlPlugin from "prettier-plugin-sql";
 import { lint } from "markdownlint/sync";
 import { applyFixes } from "markdownlint";
 import type { EffectiveSettings, MarkdownlintConfig } from "./config";
@@ -16,6 +20,21 @@ import {
   protectObsidianSyntax,
   removePreserveDirectives,
 } from "./obsidian-syntax";
+import { needsXmlPlugin, parserForExtension, pluginPackageForExtension } from "./other-formats";
+
+// @prettier/plugin-php's own .d.ts declares a default export, but its actual ESM
+// entry point (src/index.mjs) only has named exports; a default import type-checks
+// but is `undefined` at runtime. Import the namespace instead and cast past the
+// package's inaccurate types — the namespace object has exactly the Plugin shape.
+const phpPlugin = phpPluginModule as unknown as prettier.Plugin;
+
+/** Third-party plugin package name -> the imported plugin module Prettier needs on `options.plugins`. */
+const EXTRA_FORMAT_PLUGINS: Readonly<Record<string, prettier.Plugin>> = {
+  "@prettier/plugin-xml": xmlPlugin,
+  "prettier-plugin-toml": tomlPlugin,
+  "@prettier/plugin-php": phpPlugin,
+  "prettier-plugin-sql": sqlPlugin,
+};
 
 /** Extra behaviour flags for one formatting run. */
 export interface FormatOptions {
@@ -32,6 +51,7 @@ export async function resolvePrettierOptions(
   filePath: string,
   effective: EffectiveSettings,
   { cacheConfig = true }: FormatOptions = {},
+  parser: string = "markdown",
 ): Promise<prettier.Options> {
   let resolved: prettier.Options | null = null;
   if (effective.usePrettierConfig) {
@@ -40,13 +60,15 @@ export async function resolvePrettierOptions(
       useCache: cacheConfig,
     });
   }
-  return {
+  const options: prettier.Options = {
     ...(resolved ?? {}),
     ...effective.prettier,
-    proseWrap: effective.proseWrap,
     filepath: filePath,
-    parser: "markdown",
+    parser,
   };
+  // `proseWrap` only means something for Markdown; leave other languages alone.
+  if (parser === "markdown") options.proseWrap = effective.proseWrap;
+  return options;
 }
 
 /**
@@ -83,6 +105,51 @@ export async function formatMarkdown(
     formatted = obsidianProtection.restore(formatted);
     formatted = frontmatterProtection.restore(formatted);
     return formatted;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Could not format ${filePath}: ${message}`, { cause: error });
+  }
+}
+
+/**
+ * Format one file of an opt-in `additionalFileTypes` extension (JSON, YAML, CSS, XML, …).
+ * Runs Prettier's matching parser directly, with no Obsidian-specific protection or
+ * markdownlint pass — those only apply to Markdown. `.editorconfig`/Prettier config
+ * resolution is identical to {@link formatMarkdown}.
+ *
+ * @throws if `extension` is not a supported extra format, or if Prettier fails.
+ */
+export async function formatOtherFile(
+  content: string,
+  filePath: string,
+  extension: string,
+  effective: EffectiveSettings,
+  formatOptions: FormatOptions = {},
+): Promise<string> {
+  if (typeof content !== "string") throw new Error("File content must be a string.");
+  if (typeof filePath !== "string" || filePath.trim().length === 0 || filePath.includes("\0"))
+    throw new Error("File path is invalid.");
+  if (!effective || typeof effective !== "object")
+    throw new Error("Effective formatter settings are missing or invalid.");
+
+  const parser = parserForExtension(extension);
+  if (parser === null) {
+    throw new Error(`Unsupported additional file type: .${extension}`);
+  }
+
+  try {
+    const options = await resolvePrettierOptions(filePath, effective, formatOptions, parser);
+    const pluginPackage = pluginPackageForExtension(extension);
+    if (pluginPackage !== null) {
+      options.plugins = [...(options.plugins ?? []), EXTRA_FORMAT_PLUGINS[pluginPackage]];
+    }
+    if (needsXmlPlugin(extension)) {
+      // Indent block structure by default (the plugin's own default treats
+      // inter-element whitespace as significant, so it leaves XML mostly as
+      // typed); an explicit resolved/project Prettier option still wins.
+      options.xmlWhitespaceSensitivity ??= "ignore";
+    }
+    return await prettier.format(content, options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Could not format ${filePath}: ${message}`, { cause: error });

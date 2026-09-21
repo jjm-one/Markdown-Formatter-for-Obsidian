@@ -164,6 +164,35 @@
           "maxItems": 10000
         }
       }
+    },
+    "additionalFileTypes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "bpmn",
+          "canvas",
+          "css",
+          "excalidraw",
+          "gql",
+          "graphql",
+          "htm",
+          "html",
+          "json",
+          "json5",
+          "jsonc",
+          "less",
+          "php",
+          "scss",
+          "sql",
+          "toml",
+          "xml",
+          "yaml",
+          "yml"
+        ]
+      },
+      "uniqueItems": true,
+      "default": [],
+      "description": "Opt-in: also format files with these extensions (no leading dot), each run through Prettier's matching parser with no Obsidian-specific protection. Off by default; any extension not in this list, including every binary format, is never read or written."
     }
   }
 }

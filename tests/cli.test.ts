@@ -7,7 +7,7 @@ import { effectiveSettingsFromProject, resolvePrettierOptions } from "../src/cor
 import type { CliResult } from "../src/cli/cli-lib";
 import {
   cliExitCode,
-  findMarkdownFiles,
+  findFormatterFiles,
   loadStandaloneProjectConfig,
   parseCliArgs,
   renderResult,
@@ -99,7 +99,7 @@ describe("standalone CLI", () => {
     await fs.writeFile(path.join(root, "node_modules", "dependency.md"), "# Dependency\n");
     await fs.symlink(path.join(root, "notes"), path.join(root, "linked-notes"));
 
-    const files = await findMarkdownFiles(root, [".obsidian", "node_modules"]);
+    const files = await findFormatterFiles(root, [".obsidian", "node_modules"]);
     expect(files.map((file) => path.relative(root, file).replaceAll("\\", "/"))).toEqual([
       "notes/nested.md",
       "root.md",

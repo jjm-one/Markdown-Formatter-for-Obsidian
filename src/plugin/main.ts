@@ -20,6 +20,7 @@ import {
   PROJECT_CONFIG_SCHEMA_URL,
   errorMessage,
   formatMarkdown,
+  formatOtherFile,
   isPathIgnored,
   isSafeVaultRelativePath,
   parseIgnorePatterns,
@@ -61,11 +62,11 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
     this.addCommand({
       id: "format-current-markdown-file",
-      name: "Format current Markdown file",
+      name: "Format current file",
       callback: async () => {
         const file = this.app.workspace.getActiveFile();
-        if (!file || file.extension !== "md") {
-          new Notice("No Markdown file is active.");
+        if (!this.isFormattableFile(file, this.getEffectiveSettings())) {
+          new Notice("No formattable file is active.");
           return;
         }
         await this.formatFile(file, true);
@@ -123,13 +124,18 @@ export default class MarkdownFormatterPlugin extends Plugin {
           return;
         }
 
-        if (!(file instanceof TFile) || file.extension !== "md") return;
+        if (!(file instanceof TFile)) return;
+        const effective = this.getEffectiveSettings();
+        if (!this.isFormattableFile(file, effective)) return;
         if (this.formatting.has(file.path)) return;
         // Swallow the single modify event produced by our own write.
         if (this.selfWrites.delete(file.path)) return;
 
-        const effective = this.getEffectiveSettings();
-        const stampOnEdit = effective.stampUpdatedProperty && this.openMarkdownFiles.has(file.path);
+        // Frontmatter date stamping only makes sense for Markdown notes.
+        const stampOnEdit =
+          file.extension === "md" &&
+          effective.stampUpdatedProperty &&
+          this.openMarkdownFiles.has(file.path);
         if (!effective.formatOnModify && !stampOnEdit) return;
 
         const previous = this.timers.get(file.path);
@@ -148,10 +154,11 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (!file || file.extension !== "md") return;
-        this.openMarkdownFiles.add(file.path);
+        if (!file) return;
+        if (file.extension === "md") this.openMarkdownFiles.add(file.path);
 
         const effective = this.getEffectiveSettings();
+        if (!this.isFormattableFile(file, effective)) return;
         if (effective.formatOnOpen) void this.formatFile(file, false);
       }),
     );
@@ -460,6 +467,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
       },
       stampUpdatedProperty: project?.stampUpdatedProperty ?? this.settings.stampUpdatedProperty,
       updatedProperty: project?.updatedProperty?.trim() || this.settings.updatedProperty,
+      additionalFileTypes: project?.additionalFileTypes ?? this.settings.additionalFileTypes,
     };
   }
 
@@ -502,10 +510,10 @@ export default class MarkdownFormatterPlugin extends Plugin {
     }
 
     if (this.ribbonButton) return;
-    this.ribbonButton = this.addRibbonIcon("wand-sparkles", "Format current Markdown file", () => {
+    this.ribbonButton = this.addRibbonIcon("wand-sparkles", "Format current file", () => {
       const file = this.app.workspace.getActiveFile();
-      if (!file || file.extension !== "md") {
-        new Notice("No Markdown file is active.");
+      if (!this.isFormattableFile(file, this.getEffectiveSettings())) {
+        new Notice("No formattable file is active.");
         return;
       }
       void this.formatFile(file, true);
@@ -569,6 +577,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
       prettier: { ...e.prettier },
       markdownlint: { ...e.markdownlint },
       ignore: { file: e.ignore.file, patterns: [...e.ignore.patterns] },
+      additionalFileTypes: [...e.additionalFileTypes],
     };
   }
 
@@ -602,6 +611,16 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
   private isFormattingIgnored(filePath: string, effective: EffectiveSettings): boolean {
     return isPathIgnored(filePath, [...effective.ignore.patterns, ...this.ignoreFilePatterns]);
+  }
+
+  /** A Markdown file, or a file whose extension is in the vault's opt-in `additionalFileTypes`. */
+  private isFormattableFile(
+    file: TAbstractFile | null | undefined,
+    effective: EffectiveSettings,
+  ): file is TFile {
+    if (!(file instanceof TFile)) return false;
+    const extension = file.extension.toLowerCase();
+    return extension === "md" || effective.additionalFileTypes.includes(extension);
   }
 
   /** Today, formatted with Obsidian's own date format (Settings → General → Date format). */
@@ -681,10 +700,6 @@ export default class MarkdownFormatterPlugin extends Plugin {
    * distinguishes a user action (report the outcome) from an automatic one.
    */
   async formatFile(file: TFile, showNotice: boolean): Promise<void> {
-    if (!(file instanceof TFile) || file.extension !== "md") {
-      if (showNotice) new Notice("Only Markdown files can be formatted.");
-      return;
-    }
     if (this.projectConfigError) {
       if (showNotice)
         new Notice(
@@ -710,6 +725,10 @@ export default class MarkdownFormatterPlugin extends Plugin {
         new Notice(`Formatting failed while resolving settings: ${errorMessage(error)}`);
       return;
     }
+    if (!this.isFormattableFile(file, effective)) {
+      if (showNotice) new Notice("This file type is not set up for formatting.");
+      return;
+    }
     if (this.isFormattingIgnored(file.path, effective)) {
       if (showNotice) new Notice(`${file.name} is excluded from formatting.`);
       return;
@@ -719,7 +738,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
     try {
       const original = await this.app.vault.read(file);
       if (typeof original !== "string")
-        throw new Error("Obsidian returned non-text content for this Markdown file.");
+        throw new Error("Obsidian returned non-text content for this file.");
 
       // Skip if an automatic trigger is only reacting to our own last write.
       const selfWrite = this.selfWrites.get(file.path);
@@ -729,15 +748,20 @@ export default class MarkdownFormatterPlugin extends Plugin {
       }
 
       const absolutePath = this.getAbsolutePath(file) ?? file.path;
+      const extension = file.extension.toLowerCase();
       // `cacheConfig: false`: re-read `.editorconfig` / Prettier config each format
       // so edits to them take effect without restarting Obsidian.
-      let formatted = await formatMarkdown(original, absolutePath, effective, {
-        cacheConfig: false,
-      });
+      let formatted =
+        extension === "md"
+          ? await formatMarkdown(original, absolutePath, effective, { cacheConfig: false })
+          : await formatOtherFile(original, absolutePath, extension, effective, {
+              cacheConfig: false,
+            });
 
       // Refresh the "updated" property only when formatting actually changed the
-      // note, and only if that property already exists in its frontmatter.
-      if (effective.stampUpdatedProperty && formatted !== original) {
+      // note, and only if that property already exists in its frontmatter. Frontmatter
+      // is a Markdown/Obsidian concept, so this never applies to other file types.
+      if (extension === "md" && effective.stampUpdatedProperty && formatted !== original) {
         const stamped = setFrontmatterProperty(
           formatted,
           effective.updatedProperty,

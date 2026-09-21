@@ -7,4 +7,5 @@ export * from "./errors";
 export * from "./frontmatter";
 export * from "./ignore";
 export * from "./obsidian-syntax";
+export * from "./other-formats";
 export * from "./pipeline";
