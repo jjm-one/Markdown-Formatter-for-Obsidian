@@ -52,12 +52,12 @@
   },
   "dependencies": {
     "markdownlint": "0.41.1",
-    "prettier": "3.9.6"
+    "prettier": "3.9.8"
   },
   "devDependencies": {
     "@jazzer.js/core": "4.0.0",
-    "@types/node": "26.4.0",
-    "@vitest/coverage-v8": "4.1.11",
+    "@types/node": "26.6.2",
+    "@vitest/coverage-v8": "5.0.1",
     "esbuild": "0.28.2",
     "eslint": "10.9.1",
     "eslint-plugin-obsidianmd": "0.4.2",
@@ -65,7 +65,7 @@
     "obsidian": "1.13.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.69.0",
-    "vitest": "5.0.0"
+    "vitest": "5.0.1"
   },
   "engines": {
     "node": ">=24.0.0"
