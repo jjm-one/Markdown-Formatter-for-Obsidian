@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it, vi } from "vitest";
-import { Notice, TFile } from "obsidian";
-import { createFakeApp } from "./helpers";
+import { Notice } from "obsidian";
+import { createFakeApp, makeFile } from "./helpers";
 
 describe("Obsidian plugin integration", () => {
   it("registers commands, vault/workspace events, settings tab, and ribbon on load", async () => {
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const { plugin } = createFakeApp({ files: { "active.md": "# active\n" }, activeFile: file });
     await plugin.onload();
     expect((plugin as any).commands.map((c: any) => c.id)).toEqual(
@@ -26,7 +26,7 @@ describe("Obsidian plugin integration", () => {
   });
 
   it("manual command formats the active Markdown file", async () => {
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const { plugin, files } = createFakeApp({
       files: { "active.md": "#   active\n" },
       activeFile: file,
@@ -52,7 +52,7 @@ describe("Obsidian plugin integration", () => {
 
   it("continuous formatting debounces repeated modify events", async () => {
     vi.useFakeTimers();
-    const file = new TFile("live.md");
+    const file = makeFile("live.md");
     const { plugin, emitVault } = createFakeApp({ files: { "live.md": "#   live\n" } });
     await plugin.onload();
     plugin.settings.formatOnModify = true;
@@ -69,7 +69,7 @@ describe("Obsidian plugin integration", () => {
 
   it("ignores modify events generated while the plugin is formatting", async () => {
     vi.useFakeTimers();
-    const file = new TFile("live.md");
+    const file = makeFile("live.md");
     const { plugin, emitVault } = createFakeApp({ files: { "live.md": "# live\n" } });
     await plugin.onload();
     plugin.settings.formatOnModify = true;
@@ -79,7 +79,7 @@ describe("Obsidian plugin integration", () => {
   });
 
   it("formats on file-open when enabled", async () => {
-    const file = new TFile("opened.md");
+    const file = makeFile("opened.md");
     const { plugin, emitWorkspace } = createFakeApp({ files: { "opened.md": "#   opened\n" } });
     await plugin.onload();
     plugin.settings.formatOnOpen = true;
@@ -89,7 +89,7 @@ describe("Obsidian plugin integration", () => {
   });
 
   it("formats only after the last Markdown view closes", async () => {
-    const file = new TFile("multi.md");
+    const file = makeFile("multi.md");
     const env = createFakeApp({ files: { "multi.md": "#   multi\n" } });
     env.addOpenFile(file);
     env.addOpenFile(file);
@@ -113,7 +113,7 @@ describe("Obsidian plugin integration", () => {
     await env.plugin.onload();
     expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(false);
     env.files.set(config, JSON.stringify({ formatOnOpen: true }));
-    await env.emitVault("modify", new TFile(config) as any);
+    await env.emitVault("modify", makeFile(config) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(true);
   });
@@ -127,17 +127,17 @@ describe("Obsidian plugin integration", () => {
 
     // A file renamed *to* the config path is picked up.
     env.files.set(config, env.files.get("draft.json")!);
-    await env.emitVault("rename", new TFile(config) as any, "draft.json");
+    await env.emitVault("rename", makeFile(config) as any, "draft.json");
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(true);
 
     // Renaming the ignore file away reloads (and finds nothing).
     env.files.set(ignore, "Templates/**\n");
-    await env.emitVault("rename", new TFile(ignore) as any, "old-ignore");
+    await env.emitVault("rename", makeFile(ignore) as any, "old-ignore");
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Templates/**"]);
     env.files.delete(ignore);
-    await env.emitVault("rename", new TFile("archived-ignore") as any, ignore);
+    await env.emitVault("rename", makeFile("archived-ignore") as any, ignore);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(env.plugin.vaultConfig.ignorePatterns).toEqual([]);
   });
@@ -219,7 +219,7 @@ describe("Obsidian plugin integration", () => {
     expect(ribbon.removed).toBe(true);
   });
   it("never formats files matched by the vault ignore file", async () => {
-    const file = new TFile("Templates/template.md");
+    const file = makeFile("Templates/template.md");
     const { plugin, files } = createFakeApp({
       files: {
         ".markdown-formatter-ignore": "Templates/**\n",
@@ -236,7 +236,7 @@ describe("Obsidian plugin integration", () => {
     const withFrontmatter = "---\nupdated: 2024-01-01\n---\n\n#   Heading\n";
 
     it("refreshes the property when a format changes the note", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({
         files: { "note.md": withFrontmatter },
         dateFormat: "[stamped]",
@@ -251,7 +251,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("leaves the property alone when the feature is disabled", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({ files: { "note.md": withFrontmatter } });
       await plugin.onload();
       await plugin.formatFile(file, false);
@@ -259,7 +259,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("does not stamp when formatting produced no change", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({
         files: { "note.md": "---\nupdated: 2024-01-01\n---\n\n# Heading\n" },
         dateFormat: "[stamped]",
@@ -271,7 +271,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("never adds the property to a note that lacks it", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({
         files: { "note.md": "---\ntitle: X\n---\n\n#   Heading\n" },
         dateFormat: "[stamped]",
@@ -285,7 +285,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("honours a custom property name and Obsidian's date format", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({
         files: { "note.md": "---\nLast Update: 2024-01-01\n---\n\n#   Heading\n" },
         dateFormat: "[Y]",
@@ -298,7 +298,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("can be enabled from the vault project config file", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const { plugin, files } = createFakeApp({
         files: {
           "note.md": "---\nmodified: 2024-01-01\n---\n\n#   Heading\n",
@@ -318,7 +318,7 @@ describe("Obsidian plugin integration", () => {
 
     it("a modify event on an open note refreshes the property after the debounce", async () => {
       vi.useFakeTimers();
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const env = createFakeApp({
         files: { "note.md": "---\nupdated: 2024-01-01\n---\n\n# Heading\n" }, // already clean
         dateFormat: "[stamped]",
@@ -337,7 +337,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("refreshes the property on any edit to an open note, even when nothing is formatted", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const env = createFakeApp({
         files: { "note.md": "---\nupdated: 2024-01-01\n---\n\n# Heading\n" }, // already clean
         dateFormat: "[stamped]",
@@ -354,7 +354,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("does not stamp on edit when the note is not open", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const env = createFakeApp({
         files: { "note.md": "---\nupdated: 2024-01-01\n---\n\n# Heading\n" },
         dateFormat: "[stamped]",
@@ -369,7 +369,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("does not stamp on edit while the feature is disabled", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const env = createFakeApp({
         files: { "note.md": "---\nupdated: 2024-01-01\n---\n\n#   Heading\n" }, // needs formatting
         dateFormat: "[stamped]",
@@ -386,7 +386,7 @@ describe("Obsidian plugin integration", () => {
     });
 
     it("does not add the property on edit when the note lacks it", async () => {
-      const file = new TFile("note.md");
+      const file = makeFile("note.md");
       const env = createFakeApp({
         files: { "note.md": "---\ntitle: X\n---\n\n# Heading\n" },
         dateFormat: "[stamped]",
@@ -409,7 +409,7 @@ describe("Obsidian plugin integration", () => {
     await env.plugin.onload();
     expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Templates/**"]);
     env.files.set(".markdown-formatter-ignore", "Archive/**\n");
-    await env.emitVault("modify", new TFile(".markdown-formatter-ignore") as any);
+    await env.emitVault("modify", makeFile(".markdown-formatter-ignore") as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Archive/**"]);
   });
@@ -424,7 +424,7 @@ describe("Obsidian plugin integration", () => {
 
   it("blocks formatting when project configuration is malformed", async () => {
     (Notice as any).messages.length = 0;
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const env = createFakeApp({
       files: {
         ".markdown-formatter.json": "{broken",
@@ -439,7 +439,7 @@ describe("Obsidian plugin integration", () => {
   });
 
   it("recovers after a broken project configuration is fixed and reloaded", async () => {
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const env = createFakeApp({
       files: {
         ".markdown-formatter.json": "{broken",
@@ -457,7 +457,7 @@ describe("Obsidian plugin integration", () => {
 
   it("reports vault read failures without modifying the file or throwing", async () => {
     (Notice as any).messages.length = 0;
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const env = createFakeApp({ files: { "active.md": "#   active\n" }, activeFile: file });
     await env.plugin.onload();
     env.app.vault.read = async () => {
@@ -469,9 +469,17 @@ describe("Obsidian plugin integration", () => {
     expect((Notice as any).messages.at(-1)).toContain("disk read failed");
   });
 
+  it("formats a note whose .md extension is upper case, like the CLI", async () => {
+    const file = makeFile("Loud.MD");
+    const { plugin, files } = createFakeApp({ files: { "Loud.MD": "#   loud\n" } });
+    await plugin.loadSettings();
+    await plugin.formatFile(file, false);
+    expect(files.get("Loud.MD")).toBe("# loud\n");
+  });
+
   it("rejects non-Markdown files gracefully", async () => {
     (Notice as any).messages.length = 0;
-    const file = new TFile("image.png");
+    const file = makeFile("image.png");
     const env = createFakeApp({ files: { "image.png": "binary-ish" } });
     await env.plugin.onload();
     await expect(env.plugin.formatFile(file, true)).resolves.toBeUndefined();
@@ -480,7 +488,7 @@ describe("Obsidian plugin integration", () => {
 
   it("blocks formatting if the ignore file becomes unreadable", async () => {
     (Notice as any).messages.length = 0;
-    const file = new TFile("active.md");
+    const file = makeFile("active.md");
     const env = createFakeApp({
       files: {
         ".markdown-formatter-ignore": "Templates/**\n",

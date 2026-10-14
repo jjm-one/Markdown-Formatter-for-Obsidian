@@ -12,6 +12,8 @@ coverage/
 markdown-formatter-cli.cjs
 THIRD_PARTY_LICENSES.txt
 fuzz/core.cjs
+# New inputs found by a local `npm run fuzz` (the committed seeds stay in fuzz/corpus/)
+fuzz/.corpus-local/
 
 # jazzer.js reproducers from a local `npm run fuzz`
 crash-*

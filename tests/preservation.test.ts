@@ -3,8 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { TFile } from "obsidian";
-import { createFakeApp, effective } from "./helpers";
+import { createFakeApp, effective, makeFile } from "./helpers";
 import {
   addPreserveDirectives,
   extractProtectedFrontmatter,
@@ -157,7 +156,7 @@ describe("Obsidian syntax preservation", () => {
   });
 
   it("preserves a full Obsidian fixture through formatFile", async () => {
-    const file = new TFile("fixture.md");
+    const file = makeFile("fixture.md");
     const { plugin, files } = createFakeApp({ files: { "fixture.md": fixture } });
     await plugin.loadSettings();
     await plugin.formatFile(file, false);
@@ -231,7 +230,7 @@ describe("Obsidian syntax preservation", () => {
   });
 
   it("disables MD018 by default so a tag-shaped line is not rewritten into a heading", async () => {
-    const file = new TFile("tag.md");
+    const file = makeFile("tag.md");
     const { plugin, files } = createFakeApp({ files: { "tag.md": "#roadmap\n" } });
     await plugin.loadSettings();
     await plugin.formatFile(file, false);
@@ -239,7 +238,7 @@ describe("Obsidian syntax preservation", () => {
   });
 
   it("still fixes missing-space-atx headings when MD018 is explicitly re-enabled and tags are not preserved", async () => {
-    const file = new TFile("heading.md");
+    const file = makeFile("heading.md");
     const { plugin, files } = createFakeApp({ files: { "heading.md": "#Heading\n" } });
     await plugin.loadSettings();
     plugin.settings.obsidianSyntax.tags = "format";

@@ -8,6 +8,7 @@ for (const target of [
   "markdown-formatter-cli.cjs",
   "THIRD_PARTY_LICENSES.txt",
   "fuzz/core.cjs",
+  "fuzz/.corpus-local",
   "coverage",
   "release",
   "main-build",

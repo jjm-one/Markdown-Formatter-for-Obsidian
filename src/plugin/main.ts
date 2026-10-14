@@ -26,6 +26,11 @@ import {
   type ProjectConfig,
 } from "../core";
 
+/** Markdown notes, matched like the CLI does: a `.md` extension in any letter case. */
+function isMarkdown(file: TFile): boolean {
+  return file.extension.toLowerCase() === "md";
+}
+
 /**
  * Obsidian desktop plugin. Owns the trigger wiring (command, ribbon, and the
  * modify/open/close events); configuration files live in {@link VaultConfig};
@@ -92,7 +97,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
           return;
         }
 
-        if (!(file instanceof TFile) || file.extension !== "md") return;
+        if (!(file instanceof TFile) || !isMarkdown(file)) return;
         if (this.formatting.has(file.path)) return;
         // Swallow the single modify event produced by our own write.
         if (this.selfWrites.delete(file.path)) return;
@@ -113,7 +118,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (!file || file.extension !== "md") return;
+        if (!file || !isMarkdown(file)) return;
         this.openMarkdownFiles.add(file.path);
         if (this.getEffectiveSettings().formatOnOpen) void this.formatFile(file, false);
       }),
@@ -266,7 +271,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
    * distinguishes a user action (report the outcome) from an automatic one.
    */
   async formatFile(file: TFile, showNotice: boolean): Promise<void> {
-    if (file.extension !== "md") {
+    if (!isMarkdown(file)) {
       if (showNotice) new Notice("Only Markdown files can be formatted.");
       return;
     }
@@ -336,7 +341,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
 
   private async formatActiveFile(): Promise<void> {
     const file = this.app.workspace.getActiveFile();
-    if (!file || file.extension !== "md") {
+    if (!file || !isMarkdown(file)) {
       new Notice("No Markdown file is active.");
       return;
     }
@@ -376,7 +381,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
     const paths = new Set<string>();
     for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
       const view = leaf.view;
-      if (view instanceof MarkdownView && view.file?.extension === "md") {
+      if (view instanceof MarkdownView && view.file && isMarkdown(view.file)) {
         paths.add(view.file.path);
       }
     }
@@ -390,7 +395,7 @@ export default class MarkdownFormatterPlugin extends Plugin {
       for (const path of this.openMarkdownFiles) {
         if (current.has(path)) continue;
         const file = this.app.vault.getAbstractFileByPath(path);
-        if (file instanceof TFile && file.extension === "md") await this.formatFile(file, false);
+        if (file instanceof TFile && isMarkdown(file)) await this.formatFile(file, false);
       }
     }
     this.openMarkdownFiles = current;

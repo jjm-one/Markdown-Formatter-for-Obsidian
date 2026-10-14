@@ -93,7 +93,7 @@ The production build itself fails if a bundled package is under a license outsid
 
 ## Static analysis
 
-`npm run lint` uses typed ESLint rules and the official `eslint-plugin-obsidianmd` rules on the Obsidian runtime, while the standalone CLI/tests use typed TypeScript ESLint rules without Obsidian-only runtime restrictions, and the build/CI scripts get a light untyped pass. `npm run typecheck` validates the complete source tree. Both run as part of `npm run verify`.
+`npm run lint` uses typed ESLint rules and the official `eslint-plugin-obsidianmd` rules on the Obsidian runtime, while the standalone CLI/tests use typed TypeScript ESLint rules without Obsidian-only runtime restrictions, and the build/CI scripts get a light untyped pass. `npm run typecheck` validates the source tree against the real Obsidian API typings, and the tests as well (`tests/helpers.ts` bridges the few constructors where the mock differs). Both run as part of `npm run verify`.
 
 ## Running tests
 
@@ -117,10 +117,10 @@ The CI workflow runs coverage tests before build/release packaging and performs 
 
 ## Fuzzing
 
-`fuzz/format.fuzz.cjs` is a [jazzer.js](https://github.com/CodeIntelligenceTesting/jazzer.js) target that feeds arbitrary bytes to `formatMarkdown()` — the regex-heavy Obsidian tokenization and restore passes are the most likely place for a pathological-input crash or hang. `fuzz/corpus/` holds committed seed inputs; new interesting inputs found by the scheduled run are added there.
+`fuzz/format.fuzz.cjs` is a [jazzer.js](https://github.com/CodeIntelligenceTesting/jazzer.js) target that feeds arbitrary bytes to `formatMarkdown()` — the regex-heavy Obsidian tokenization and restore passes are the most likely place for a pathological-input crash or hang. `fuzz/corpus/` holds the committed seed inputs. A local `npm run fuzz` saves new interesting inputs to the git-ignored `fuzz/.corpus-local/`; add one to `fuzz/corpus/` by hand when it is worth keeping as a seed.
 
 ```bash
-npm run fuzz          # build the bundle + explore for 60s, seeded from fuzz/corpus/
+npm run fuzz          # build the bundle + explore for 60s, seeded from fuzz/corpus/ and fuzz/.corpus-local/
 npm run fuzz:replay   # just re-run the committed corpus once (the PR regression check)
 npm run build:fuzz    # only write fuzz/core.cjs (git-ignored), for a custom jazzer run
 ```

@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it, vi } from "vitest";
-import { TFile } from "obsidian";
-import { createFakeApp } from "./helpers";
+import { createFakeApp, makeFile } from "./helpers";
 
 type Tab = {
   getControlValue(key: string): unknown;
@@ -181,7 +180,7 @@ describe("settings tab with a vault project config file", () => {
     const updatesBefore = env.tab.updateCount;
 
     env.files.set(CONFIG_PATH, JSON.stringify({ proseWrap: "always" }));
-    await env.emitVault("modify", new TFile(CONFIG_PATH) as any);
+    await env.emitVault("modify", makeFile(CONFIG_PATH) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(env.tab.getControlValue("proseWrap")).toBe("always");
@@ -194,7 +193,7 @@ describe("settings tab with a vault project config file", () => {
 
     await env.tab.setControlValue("proseWrap", "always");
     // Simulate the vault emitting the modify event for our own write.
-    await env.emitVault("modify", new TFile(CONFIG_PATH) as any);
+    await env.emitVault("modify", makeFile(CONFIG_PATH) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(readConfig(env.files).proseWrap).toBe("always");

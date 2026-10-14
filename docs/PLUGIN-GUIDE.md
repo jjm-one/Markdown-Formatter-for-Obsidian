@@ -368,7 +368,7 @@ It is desktop-only — it will not appear on mobile. On desktop, make sure the f
 Your Obsidian is likely older than 1.13.7. Update Obsidian (**Settings → About**).
 
 **Nothing happens when I run the format command.**
-Check the note is a `.md` file (lowercase extension) and is the active tab. If you see "excluded from formatting", it matches a line in your ignore file. If you see a message about invalid configuration, fix `.markdown-formatter.json` and reload it.
+Check the note is a `.md` file and is the active tab. If you see "excluded from formatting", it matches a line in your ignore file. If you see a message about invalid configuration, fix `.markdown-formatter.json` and reload it.
 
 **"Prettier configuration … can run code, so it was not loaded."**
 A Prettier config that applies to the note is a JavaScript/TypeScript file or names a shared-config package. Convert it to a `.prettierrc.json` file, or — if you trust the vault — turn on **Trust Prettier configuration** under _Formatter_. See [Configuration → Prettier configuration that can run code](CONFIGURATION.md#prettier-configuration-that-can-run-code).

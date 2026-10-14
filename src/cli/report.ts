@@ -218,8 +218,14 @@ function renderSarif(result: CliResult, meta: ReportMeta): string {
   const results: unknown[] = [];
 
   for (const entry of result.entries) {
+    // Identical changes in one file are numbered, so each keeps its own alert;
+    // the line is left out, so a fingerprint survives edits above the change.
+    const occurrences = new Map<string, number>();
     for (const change of entry.changes ?? []) {
       usedKinds.add(change.kind);
+      const key = `${change.kind}\0${change.message}`;
+      const occurrence = (occurrences.get(key) ?? 0) + 1;
+      occurrences.set(key, occurrence);
       const { begin, end } = lineRange(change);
       const diff = changeDiffLines(change);
       const region: Record<string, unknown> =
@@ -236,7 +242,7 @@ function renderSarif(result: CliResult, meta: ReportMeta): string {
         },
         locations: [{ physicalLocation: { artifactLocation: { uri: entry.file }, region } }],
         partialFingerprints: {
-          formatterChange: fingerprintOf(entry.file, change.kind, change.message),
+          formatterChange: fingerprintOf(entry.file, change.kind, change.message, occurrence),
         },
         // Machine-applicable replacement of the original lines with the formatted ones.
         ...(change.anchor === "at" && lastBefore !== undefined && change.after.length > 0

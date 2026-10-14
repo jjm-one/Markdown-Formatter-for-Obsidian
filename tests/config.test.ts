@@ -114,6 +114,8 @@ describe("configuration", () => {
     [[], "JSON object"],
     [{ formatOnOpen: "yes" }, "formatOnOpen"],
     [{ debounceMs: 700000 }, "debounceMs"],
+    [{ debounceMs: 900.5 }, "whole number"],
+    [{ ignore: { file: `${"a/".repeat(2048)}x` } }, "4096 characters"],
     [{ stampUpdatedProperty: "yes" }, "stampUpdatedProperty"],
     [{ updatedProperty: "bad:name" }, "updatedProperty"],
     [{ updatedProperty: 3 }, "updatedProperty"],
@@ -124,6 +126,12 @@ describe("configuration", () => {
     [{ toString: true }, "Unknown project configuration"],
   ])("rejects invalid project config %#", (config, message) => {
     expect(() => validateProjectConfig(config)).toThrow(message);
+  });
+
+  it("accepts repeated ignore patterns, which can be meaningful with re-includes", () => {
+    expect(() =>
+      validateProjectConfig({ ignore: { patterns: ["a/**", "!a/b.md", "a/**"] } }),
+    ).not.toThrow();
   });
 
   it("validates single settings by flat or dotted key", () => {

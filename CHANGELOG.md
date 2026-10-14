@@ -26,12 +26,15 @@ All notable changes to this project will be documented in this file, following
 - `--config` and `--ignore-file` rejected files inside the workspace whose names start with `..` (such as `..ignore`).
 - File order in output and reports depended on the machine's locale; it is now the same everywhere.
 - A frontmatter block closed by a line longer than `---` (such as `----`) was treated as closed.
+- The plugin ignored notes with an upper-case `.MD` extension, which the CLI formats; both now match `.md` in any letter case.
+- The JSON schema rejected repeated `ignore.patterns`, which the formatter accepts and which can be meaningful with `!` re-includes.
 - Third-party notices covered only Prettier and markdownlint. Every distributed bundle now carries the license texts of all bundled packages, including Prettier's own third-party notices, and releases ship `THIRD_PARTY_LICENSES.txt` and the GNU GPL v3.0 text that the LGPL incorporates.
 
 ### Changed
 
 - CLI: files are formatted several at a time; output order is unchanged.
 - Production bundles are minified.
+- `debounceMs` must be a whole number of milliseconds, as the JSON schema already required, and `ignore.file` is limited to 4096 characters.
 - Pinned Node.js to `24.21.0`, the current "Krypton" LTS release (`.nvmrc`, `.node-version`). npm stays `11.19.0`, the version Node.js 24.21.0 bundles.
 
 ## [0.1.0] - 2026-09-03

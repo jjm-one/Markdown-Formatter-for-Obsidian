@@ -182,12 +182,12 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
   if (
     config.debounceMs !== undefined &&
     (typeof config.debounceMs !== "number" ||
-      !Number.isFinite(config.debounceMs) ||
+      !Number.isInteger(config.debounceMs) ||
       config.debounceMs < DEBOUNCE_MIN_MS ||
       config.debounceMs > DEBOUNCE_MAX_MS)
   ) {
     throw new Error(
-      `debounceMs must be a finite number between ${DEBOUNCE_MIN_MS} and ${DEBOUNCE_MAX_MS} milliseconds.`,
+      `debounceMs must be a whole number of milliseconds between ${DEBOUNCE_MIN_MS} and ${DEBOUNCE_MAX_MS}.`,
     );
   }
 
@@ -228,9 +228,12 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
     if (!isPlainObject(config.ignore)) throw new Error("ignore must be a JSON object.");
     for (const key of Object.keys(config.ignore))
       if (key !== "file" && key !== "patterns") throw new Error(`Unknown ignore option: ${key}.`);
-    if (config.ignore.file !== undefined && !isSafeVaultRelativePath(config.ignore.file)) {
+    if (
+      config.ignore.file !== undefined &&
+      (!isSafeVaultRelativePath(config.ignore.file) || config.ignore.file.length > 4096)
+    ) {
       throw new Error(
-        "ignore.file must be a non-empty vault-relative path without NUL characters or parent-directory traversal.",
+        "ignore.file must be a non-empty vault-relative path of at most 4096 characters, without NUL characters or parent-directory traversal.",
       );
     }
     if (config.ignore.patterns !== undefined)

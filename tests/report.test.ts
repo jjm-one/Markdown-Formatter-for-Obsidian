@@ -144,6 +144,41 @@ describe("renderReport", () => {
     expect(issues[0]?.fingerprint).not.toBe(issues[1]?.fingerprint);
   });
 
+  it("gives identical SARIF results in one file distinct fingerprints that survive line shifts", () => {
+    const trailing = (line: number) => ({
+      anchor: "at" as const,
+      line,
+      endLine: line,
+      kind: "trailing-whitespace" as const,
+      message: "Remove the trailing whitespace (2 spaces).",
+      before: ["x  "],
+      after: ["x"],
+    });
+    const fingerprints = (lines: number[]) =>
+      (
+        JSON.parse(
+          renderReport(
+            result({
+              entries: [
+                {
+                  file: "note.md",
+                  status: "needs-formatting",
+                  diagnostics: [],
+                  changes: lines.map(trailing),
+                },
+              ],
+            }),
+            "check",
+            "sarif",
+            meta,
+          ),
+        ) as { runs: Array<{ results: Array<{ partialFingerprints: Record<string, string> }> }> }
+      ).runs[0]?.results.map((r) => r.partialFingerprints.formatterChange);
+    const before = fingerprints([3, 9]);
+    expect(before?.[0]).not.toBe(before?.[1]);
+    expect(fingerprints([5, 11])).toEqual(before);
+  });
+
   it("renders GitHub-compatible SARIF 2.1.0", () => {
     const sarif = JSON.parse(renderReport(result(), "check", "sarif", meta)) as {
       version: string;
