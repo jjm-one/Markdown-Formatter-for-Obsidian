@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file, following
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-14
+
+### Security
+
+- Patched dependency advisories for `moment` (path traversal in `moment.locale()`, fixed in 2.31.0) and `katex` (prototype pollution bypassing trust restrictions, fixed in 0.18.2) through npm overrides. Neither package is part of the distributed `main.js` or CLI, so earlier releases were not affected.
+
+### Changed
+
+- Built against the Obsidian 1.14.4 API typings. The minimum supported Obsidian version stays 1.13.7.
+
 ## [0.2.0] - 2026-10-14
 
 ### Added

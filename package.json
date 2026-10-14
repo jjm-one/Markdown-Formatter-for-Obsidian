@@ -1,6 +1,6 @@
 {
   "name": "markdown-formatter-for-obsidian",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Format Obsidian Markdown safely with Prettier, markdownlint, EditorConfig, and a shared standalone CI CLI.",
   "license": "LGPL-3.0-only",
   "type": "module",
