@@ -6,7 +6,7 @@ Security fixes land on `main` and ship in the next release. Only the most recent
 
 | Version        | Supported |
 | -------------- | --------- |
-| 0.2.0          | Yes       |
+| 0.2.1          | Yes       |
 | Older releases | No        |
 
 ## Reporting a vulnerability

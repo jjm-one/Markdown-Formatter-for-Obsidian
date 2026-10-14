@@ -15,7 +15,7 @@ markdown-format:
     - >-
       curl -fsSL
       -o /tmp/markdown-formatter.cjs
-      https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.0/markdown-formatter-cli.cjs
+      https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.1/markdown-formatter-cli.cjs
     - >-
       if [ -n "$MARKDOWN_FORMATTER_SHA256" ]; then
       echo "$MARKDOWN_FORMATTER_SHA256  /tmp/markdown-formatter.cjs" | sha256sum -c -;
