@@ -58,12 +58,12 @@ assert(
 );
 assert(
   pkg.packageManager === "npm@11.19.0",
-  "package.json must declare npm 11.19.0 to match Node.js 24.20.0 LTS.",
+  "package.json must declare npm 11.19.0 to match Node.js 24.21.0 LTS.",
 );
 const nvmrc = fs.readFileSync(".nvmrc", "utf8").trim();
 assert(
-  nvmrc === "24.20.0" && fs.readFileSync(".node-version", "utf8").trim() === nvmrc,
-  ".nvmrc and .node-version must both pin 24.20.0.",
+  nvmrc === "24.21.0" && fs.readFileSync(".node-version", "utf8").trim() === nvmrc,
+  ".nvmrc and .node-version must both pin 24.21.0.",
 );
 assert(
   fs.readFileSync("LICENSE", "utf8").includes("GNU LESSER GENERAL PUBLIC LICENSE"),
