@@ -54,6 +54,13 @@ if (badArgs.status !== 2 || !badArgs.stderr.includes("Unknown option")) {
   throw new Error(`CLI invalid-argument smoke test failed.\n${badArgs.stdout}\n${badArgs.stderr}`);
 }
 
+const badReportCombo = run(["check", ".", "--report-format", "gitlab"]);
+if (badReportCombo.status !== 2 || !badReportCombo.stderr.includes("--report-format requires")) {
+  throw new Error(
+    `CLI --report-format-without-file smoke test failed.\n${badReportCombo.stdout}\n${badReportCombo.stderr}`,
+  );
+}
+
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "mdf-cli-smoke-"));
 try {
   fs.writeFileSync(path.join(root, "note.md"), "#Bad\n\n|A|B|\n|-|-|\n|1|2|\n", "utf8");
@@ -67,6 +74,39 @@ try {
     throw new Error(
       `Expected detailed check diagnostics.\n${diagnosticCheck.stdout}\n${diagnosticCheck.stderr}`,
     );
+  }
+
+  const changesCheck = run(["check", root, "--show-changes"]);
+  if (changesCheck.status !== 1 || !/\n {2}line \d+.*: .+/.test(changesCheck.stdout)) {
+    throw new Error(
+      `Expected a descriptive change list.\n${changesCheck.stdout}\n${changesCheck.stderr}`,
+    );
+  }
+
+  for (const format of ["text", "json", "gitlab", "sarif"]) {
+    const reportPath = path.join(root, `report.${format}`);
+    const reportRun = run([
+      "check",
+      root,
+      "--quiet",
+      "--report-file",
+      reportPath,
+      "--report-format",
+      format,
+    ]);
+    if (reportRun.status !== 1 || !fs.existsSync(reportPath)) {
+      throw new Error(
+        `Expected a ${format} report to be written.\n${reportRun.stdout}\n${reportRun.stderr}`,
+      );
+    }
+    const contents = fs.readFileSync(reportPath, "utf8");
+    if (format !== "text") JSON.parse(contents); // throws if malformed
+    if (format === "gitlab" && !Array.isArray(JSON.parse(contents))) {
+      throw new Error("Expected the gitlab report to be a bare JSON array.");
+    }
+    if (format === "sarif" && !contents.includes('"version": "2.1.0"')) {
+      throw new Error("Expected the sarif report to declare version 2.1.0.");
+    }
   }
 
   const verboseCheck = run(["check", root, "--verbose"]);
@@ -91,7 +131,7 @@ try {
   }
 
   console.log(
-    "Bundled standalone CLI smoke test passed (help, version, diagnostics, verbosity, check, format, and invalid arguments).",
+    "Bundled standalone CLI smoke test passed (help, version, diagnostics, change reports, verbosity, check, format, and invalid arguments).",
   );
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

@@ -11,6 +11,7 @@ The **standalone CLI** formats every Markdown file in a folder from a terminal, 
 - [`check` vs `format`](#check-vs-format)
 - [Reading the output](#reading-the-output)
 - [Options](#options)
+- [Reports](#reports)
 - [Which files it looks at](#which-files-it-looks-at)
 - [Sharing rules with the Obsidian plugin](#sharing-rules-with-the-obsidian-plugin)
 - [Pre-commit hook](#pre-commit-hook)
@@ -120,21 +121,68 @@ FAILED: 42 file(s) checked; 1 need formatting, 40 clean, 1 failed.
 
 ## Options
 
-| Option                      | What it does                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------- |
-| `--show-errors`, `--errors` | In `check` mode, print the line-by-line "current vs expected" differences.      |
-| `--max-errors <n>`          | Max differences shown per file (1–1000; default 20).                            |
-| `--exclude "<glob>"`        | Skip extra paths for this run only. Repeatable.                                 |
-| `--config <path>`           | Use a specific config file instead of `.markdown-formatter.json` in the folder. |
-| `--ignore-file <path>`      | Use a specific ignore file instead of `.markdown-formatter-ignore`.             |
-| `-q`, `--quiet`             | Print only the final summary line and any errors.                               |
-| `--verbose`                 | Print every processed file with its status (including unchanged).               |
-| `--debug`                   | Everything `--verbose` shows, plus the resolved config/ignore paths.            |
-| `--verbosity <level>`       | `quiet` \| `normal` \| `verbose` \| `debug` (alternative to the flags above).   |
-| `-h`, `--help`              | Full built-in help.                                                             |
-| `-V`, `--version`           | CLI version and Node.js version.                                                |
+| Option                        | What it does                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| `--show-errors`, `--errors`   | In `check` mode, print the line-by-line "current vs expected" differences.            |
+| `--max-errors <n>`            | Max differences shown per file (1–1000; default 20).                                  |
+| `--show-changes`, `--changes` | Print every required change with a description and the exact current/formatted lines. |
+| `--report-file <path>`        | Write a detailed change report to this file. See [Reports](#reports).                 |
+| `--report-format <fmt>`       | `text` \| `json` \| `gitlab` \| `sarif` (default `text`). Requires `--report-file`.   |
+| `--exclude "<glob>"`          | Skip extra paths for this run only. Repeatable.                                       |
+| `--config <path>`             | Use a specific config file instead of `.markdown-formatter.json` in the folder.       |
+| `--ignore-file <path>`        | Use a specific ignore file instead of `.markdown-formatter-ignore`.                   |
+| `-q`, `--quiet`               | Print only the final summary line and any errors.                                     |
+| `--verbose`                   | Print every processed file with its status (including unchanged).                     |
+| `--debug`                     | Everything `--verbose` shows, plus the resolved config/ignore paths.                  |
+| `--verbosity <level>`         | `quiet` \| `normal` \| `verbose` \| `debug` (alternative to the flags above).         |
+| `-h`, `--help`                | Full built-in help.                                                                   |
+| `-V`, `--version`             | CLI version and Node.js version.                                                      |
 
 The default config path is `.markdown-formatter.json` in the folder root. A missing default file falls back to the safe built-in defaults; a `--config` file that cannot be loaded stops the run with exit `2` (no silent fallback).
+
+## Reports
+
+`--show-changes` lists every change a file needs: where it is, what has to change in plain words, and the exact current (`-`) and formatted (`+`) lines. Whitespace that matters is made visible (`·` space, `→` tab):
+
+```text
+Legend: "-" current line, "+" formatted line, "·" space, "→" tab, "(blank line)" empty line.
+
+note.md — 4 changes
+  line 3: Change the list marker "*" to "-"; remove the trailing whitespace (2 spaces).
+      - * item one··
+      + - item one
+  after line 3: Insert a blank line between the list item (line 3) and the table row (line 4).
+      + (blank line)
+  line 4-6: Reformat the table and align its columns.
+      - |A|B|
+      + | A   | B   |
+      ...
+  line 8-9: Remove 2 extra blank lines between the table row (line 6) and the heading (line 10); a single blank line separates them.
+      - (blank line)
+      - (blank line)
+```
+
+Applying every listed change gives exactly what `format` writes. Each change has a type — list marker, list numbering, heading style, emphasis markers, escaping, code fence, horizontal rule, table formatting, line wrapping, indentation, whitespace, trailing whitespace, missing/extra blank line, end of file, line endings, encoding — or, when none fits, a generic content change.
+
+`--report-file <path>` writes the same information to disk for CI to pick up, in one of four `--report-format` values:
+
+| Format   | What it is                                                                                         | Use it for                                                  |
+| -------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `text`   | Human-readable (default)                                                                           | Reading later, or attaching to a build log                  |
+| `json`   | This tool's own structured format                                                                  | Custom tooling/scripts                                      |
+| `gitlab` | [Code Quality](https://docs.gitlab.com/ee/ci/testing/code_quality.html) report (Code Climate JSON) | `artifacts: reports: codequality:` in `.gitlab-ci.yml`      |
+| `sarif`  | [SARIF](https://sarifweb.azurewebsites.net/) 2.1.0                                                 | `github/codeql-action/upload-sarif` — annotates the PR diff |
+
+What each report contains:
+
+- **`text`**: the run summary, a count per change type with an explanation of the rule, every change with its exact lines (as above), errors, and the list of files that were already formatted.
+- **`json`**: the summary with total and per-type counts, a description of each change type, every scanned file with its status and change count, and each change with `location`, `kind`, `message`, and the exact `before`/`after` lines.
+- **`gitlab`**: one issue per change with the type and description, plus the current/formatted lines as a diff in the issue body.
+- **`sarif`**: one result per change with the description and diff, the original lines as a snippet, a machine-applicable fix (the replacement text), and one rule per change type with help text.
+
+The report always covers the whole run (every file, even when there are zero changes) and includes read/format/write failures alongside formatting changes, so it is a complete CI artifact on its own.
+
+Ready-made workflows: [`examples/gitlab/.gitlab-ci.yml`](../examples/gitlab/.gitlab-ci.yml) (Code Quality) and [`examples/github-actions/markdown-format-report.yml`](../examples/github-actions/markdown-format-report.yml) (SARIF).
 
 ## Which files it looks at
 
@@ -220,6 +268,8 @@ markdown-format:
     when: always
     paths: [markdown-format.patch]
 ```
+
+To surface individual changes instead of just pass/fail, see [Reports](#reports) — `examples/gitlab/.gitlab-ci.yml` and `examples/github-actions/markdown-format-report.yml` add a Code Quality / SARIF report to the jobs above.
 
 ## Docker
 

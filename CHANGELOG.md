@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file, following
 
 ## [Unreleased]
 
+### Added
+
+- CLI: `--show-changes` prints every required change with its location, a plain-language description (e.g. `line 12: Change the list marker "*" to "-".`), and the exact current/formatted lines with visible whitespace.
+- CLI: `--report-file <path>` writes a change report, in `--report-format text` (default), `json`, `gitlab` (Code Quality / Code Climate JSON, for `artifacts: reports: codequality:`), or `sarif` (SARIF 2.1.0, for `github/codeql-action/upload-sarif`). The report always covers the full run, including read/format/write failures, with per-type counts and the exact before/after lines of every change. New examples: `examples/gitlab/.gitlab-ci.yml` (Code Quality) and `examples/github-actions/markdown-format-report.yml` (SARIF).
+
+### Changed
+
+- Pinned Node.js to `24.21.0`, the current "Krypton" LTS release (`.nvmrc`, `.node-version`). npm stays `11.19.0` — already the version 24.21.0 bundles.
+
 ## [0.1.0] - 2026-09-03
 
 First public release. Distributed through BRAT and as a GitHub Release — not yet
