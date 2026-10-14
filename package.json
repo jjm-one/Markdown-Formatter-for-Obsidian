@@ -68,6 +68,7 @@
     "vitest": "5.0.3"
   },
   "overrides": {
+    "katex": "0.18.2",
     "moment": "2.31.0"
   },
   "engines": {
