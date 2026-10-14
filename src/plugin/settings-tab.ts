@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /**
@@ -11,22 +12,26 @@
  * value (project override, then plugin setting).
  */
 
-import { App, Notice, PluginSettingTab, type Setting } from "obsidian";
+import { apiVersion, App, Notice, PluginSettingTab, type Setting } from "obsidian";
 import {
+  describeBuild,
   DEBOUNCE_MAX_MS,
   DEBOUNCE_MIN_MS,
+  DEFAULT_SETTINGS,
+  errorMessage,
   isSafeVaultRelativePath,
-  LINK_MODES,
-  OBSIDIAN_SYNTAX_MODES,
-  PROSE_WRAP_MODES,
-  STRUCTURE_MODES,
   UPDATED_PROPERTY_PATTERN,
+  validateProjectSetting,
   type MarkdownLinkSettings,
+  type MarkdownlintConfig,
   type MarkdownStructureSettings,
   type ObsidianSyntaxSettings,
-  type ProjectConfig,
 } from "../core";
 import type MarkdownFormatterPlugin from "./main";
+import { validatePluginSetting } from "./settings";
+
+/** Settings that decide where and how settings are loaded; always the plugin's own, never the project file's. */
+const PLUGIN_ONLY_KEYS = new Set(["useProjectConfig", "projectConfigPath", "trustPrettierConfig"]);
 
 export class FormatterSettingTab extends PluginSettingTab {
   constructor(
@@ -39,11 +44,9 @@ export class FormatterSettingTab extends PluginSettingTab {
   /** The effective value of a control key: project-config override, then plugin setting. */
   getControlValue(key: string): unknown {
     const globalRoot = this.plugin.settings as unknown as Record<string, unknown>;
-    // `useProjectConfig` / `projectConfigPath` decide *where* settings live —
-    // they are always the plugin's own.
-    if (key === "useProjectConfig" || key === "projectConfigPath") return getPath(globalRoot, key);
+    if (PLUGIN_ONLY_KEYS.has(key)) return getPath(globalRoot, key);
 
-    const project = this.plugin.getActiveProjectConfig();
+    const project = this.plugin.vaultConfig.active;
     const fromProject = project ? getPath(project, key) : undefined;
     return fromProject ?? getPath(globalRoot, key);
   }
@@ -52,14 +55,14 @@ export class FormatterSettingTab extends PluginSettingTab {
   async setControlValue(key: string, value: unknown): Promise<void> {
     const normalized = normalizeControlValue(key, value);
 
-    if (key === "useProjectConfig" || key === "projectConfigPath") {
+    if (PLUGIN_ONLY_KEYS.has(key)) {
       setPath(this.plugin.settings as unknown as Record<string, unknown>, key, normalized);
       await this.plugin.saveSettings();
-      await this.plugin.loadProjectConfig(false);
+      if (key !== "trustPrettierConfig") await this.plugin.loadProjectConfig(false);
       return;
     }
 
-    if (this.plugin.isProjectConfigActive()) {
+    if (this.plugin.vaultConfig.active !== null) {
       await this.plugin.updateProjectConfig((config) => {
         setPath(config, key, normalized);
       });
@@ -120,17 +123,17 @@ export class FormatterSettingTab extends PluginSettingTab {
           },
           {
             name: "Formatting ignore file",
-            desc: `Files matching ${this.plugin.getIgnoreFilePath()} are never formatted by automatic triggers, the ribbon, hotkeys, or the manual action. The project config can change the path and add inline patterns.`,
+            desc: `Files matching ${this.plugin.vaultConfig.ignorePath} are never formatted by automatic triggers, the ribbon, hotkeys, or the manual action. The project config can change the path and add inline patterns.`,
             render: (setting: Setting) => {
               setting
                 .addButton((button) =>
                   button.setButtonText("Create ignore file").onClick(async () => {
-                    await this.plugin.createIgnoreFile();
+                    await this.plugin.vaultConfig.createIgnore();
                   }),
                 )
                 .addButton((button) =>
                   button.setButtonText("Reload ignore file").onClick(async () => {
-                    await this.plugin.loadIgnoreFile(true);
+                    await this.plugin.vaultConfig.loadIgnore(true);
                   }),
                 );
             },
@@ -167,8 +170,8 @@ export class FormatterSettingTab extends PluginSettingTab {
             control: {
               type: "number" as const,
               key: "debounceMs",
-              min: 250,
-              max: 600000,
+              min: DEBOUNCE_MIN_MS,
+              max: DEBOUNCE_MAX_MS,
               step: 50,
             },
           },
@@ -184,12 +187,17 @@ export class FormatterSettingTab extends PluginSettingTab {
             control: { type: "toggle" as const, key: "usePrettierConfig" },
           },
           {
+            name: "Trust Prettier configuration",
+            desc: "Also load Prettier configuration that can run code: JavaScript/TypeScript config files, configs that name a shared-config package, and Prettier plugins. Off by default, so a vault from someone else cannot run code on your computer; such a config then stops formatting with an error. Turn on only for vaults you trust. Stored on this device only.",
+            control: { type: "toggle" as const, key: "trustPrettierConfig" },
+          },
+          {
             name: "Prose wrapping",
             desc: "Preserve is the safest option for existing Obsidian notes.",
             control: {
               type: "dropdown" as const,
               key: "proseWrap",
-              defaultValue: "preserve",
+              defaultValue: DEFAULT_SETTINGS.proseWrap,
               options: {
                 preserve: "Preserve",
                 always: "Always wrap",
@@ -214,7 +222,7 @@ export class FormatterSettingTab extends PluginSettingTab {
             control: {
               type: "text" as const,
               key: "updatedProperty",
-              placeholder: "updated",
+              placeholder: DEFAULT_SETTINGS.updatedProperty,
               disabled: () => this.getControlValue("stampUpdatedProperty") !== true,
               validate: (value: string) =>
                 UPDATED_PROPERTY_PATTERN.test(value.trim())
@@ -344,32 +352,52 @@ export class FormatterSettingTab extends PluginSettingTab {
           },
         ],
       },
+      {
+        type: "group" as const,
+        heading: "About",
+        items: [
+          {
+            name: "Version",
+            desc: this.versionText(),
+            render: (setting: Setting) => {
+              setting.addButton((button) =>
+                button.setButtonText("Copy").onClick(async () => {
+                  await navigator.clipboard.writeText(this.versionText());
+                  new Notice("Version information copied.");
+                }),
+              );
+            },
+          },
+        ],
+      },
     ];
+  }
+
+  /** Plugin version, build, and Obsidian version, as shown in the tab and copied for bug reports. */
+  versionText(): string {
+    return `Markdown Formatter ${describeBuild()} · Obsidian ${apiVersion}`;
   }
 
   /** Effective markdownlint config as JSON text: the project file's object, else the plugin's. */
   private markdownlintConfigText(): string {
-    const project = this.plugin.getActiveProjectConfig();
+    const project = this.plugin.vaultConfig.active;
     return project?.markdownlint
       ? JSON.stringify(project.markdownlint, null, 2)
       : this.plugin.settings.markdownlintConfigJson;
   }
 
   private async saveMarkdownlintJson(value: string): Promise<void> {
-    let parsed: unknown;
+    let parsed: MarkdownlintConfig;
     try {
-      parsed = JSON.parse(value);
-    } catch {
-      new Notice("Markdownlint configuration is not valid JSON.");
+      parsed = JSON.parse(value) as MarkdownlintConfig;
+      validateProjectSetting("markdownlint", parsed);
+    } catch (error) {
+      new Notice(`Markdownlint configuration is not a valid JSON object: ${errorMessage(error)}`);
       return;
     }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      new Notice("Markdownlint configuration must be a JSON object.");
-      return;
-    }
-    if (this.plugin.isProjectConfigActive()) {
+    if (this.plugin.vaultConfig.active !== null) {
       await this.plugin.updateProjectConfig((config) => {
-        config.markdownlint = parsed as ProjectConfig["markdownlint"];
+        config.markdownlint = parsed;
       });
     } else {
       this.plugin.settings.markdownlintConfigJson = value;
@@ -387,7 +415,7 @@ function structureDefinition(name: string, desc: string, key: keyof MarkdownStru
     control: {
       type: "dropdown" as const,
       key: `markdownStructures.${key}`,
-      defaultValue: key === "fencedCodeBlocks" ? "preserve" : "prettier",
+      defaultValue: DEFAULT_SETTINGS.markdownStructures[key],
       options: {
         prettier: "Normalize with Prettier",
         preserve: "Preserve source syntax",
@@ -403,7 +431,7 @@ function linkDefinition(name: string, desc: string, key: keyof MarkdownLinkSetti
     control: {
       type: "dropdown" as const,
       key: `links.${key}`,
-      defaultValue: key === "markdownLinks" ? "prettier" : "preserve",
+      defaultValue: DEFAULT_SETTINGS.links[key],
       options: {
         prettier: "Normalize with formatter",
         preserve: "Preserve source syntax",
@@ -419,7 +447,7 @@ function obsidianDefinition(name: string, desc: string, key: keyof ObsidianSynta
     control: {
       type: "dropdown" as const,
       key: `obsidianSyntax.${key}`,
-      defaultValue: "preserve",
+      defaultValue: DEFAULT_SETTINGS.obsidianSyntax[key],
       options: {
         preserve: "Preserve for Obsidian",
         format: "Allow formatter",
@@ -428,64 +456,17 @@ function obsidianDefinition(name: string, desc: string, key: keyof ObsidianSynta
   };
 }
 
-const BOOLEAN_SETTING_KEYS = new Set([
-  "useProjectConfig",
-  "formatOnModify",
-  "formatOnOpen",
-  "formatOnClose",
-  "showRibbonButton",
-  "usePrettierConfig",
-  "runMarkdownlintFixes",
-  "stampUpdatedProperty",
-]);
-
-const oneOf = (value: unknown, allowed: readonly string[]): boolean =>
-  typeof value === "string" && allowed.includes(value);
-
 /** Validate and coerce a value coming from the UI for `key`; throws if it is not acceptable. */
 function normalizeControlValue(key: string, value: unknown): unknown {
-  if (BOOLEAN_SETTING_KEYS.has(key)) {
-    if (typeof value !== "boolean") throw new Error(`${key} must be true or false.`);
-    return value;
-  }
-
-  if (key === "projectConfigPath") {
-    if (typeof value !== "string" || !isSafeVaultRelativePath(value.trim())) {
-      throw new Error("Project configuration path must be a safe vault-relative path.");
-    }
-    return value.trim();
-  }
-  if (key === "updatedProperty") {
-    if (typeof value !== "string" || !UPDATED_PROPERTY_PATTERN.test(value.trim())) {
-      throw new Error(
-        "Updated-date property name must be 1–64 letters, digits, spaces, hyphens, or underscores.",
-      );
-    }
-    return value.trim();
-  }
+  // The number field may deliver any number: clamp it into range instead of rejecting it.
   if (key === "debounceMs") {
     if (typeof value !== "number" || !Number.isFinite(value))
       throw new Error("Debounce must be a finite number.");
     return Math.min(DEBOUNCE_MAX_MS, Math.max(DEBOUNCE_MIN_MS, Math.round(value)));
   }
-  if (key === "proseWrap") {
-    if (!oneOf(value, PROSE_WRAP_MODES)) throw new Error("Invalid prose wrapping mode.");
-    return value;
-  }
-  if (key.startsWith("markdownStructures.")) {
-    if (!oneOf(value, STRUCTURE_MODES)) throw new Error("Invalid Markdown structure mode.");
-    return value;
-  }
-  if (key.startsWith("links.")) {
-    if (!oneOf(value, LINK_MODES)) throw new Error("Invalid link formatting mode.");
-    return value;
-  }
-  if (key.startsWith("obsidianSyntax.")) {
-    if (!oneOf(value, OBSIDIAN_SYNTAX_MODES)) throw new Error("Invalid Obsidian syntax mode.");
-    return value;
-  }
-
-  throw new Error(`Unknown plugin setting: ${key}.`);
+  const normalized = typeof value === "string" ? value.trim() : value;
+  validatePluginSetting(key, normalized);
+  return normalized;
 }
 
 // A control key is a flat setting name or exactly `<group>.<key>`. Resolving the

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /**
@@ -7,6 +8,7 @@
  */
 
 import type { EffectiveSettings } from "./config";
+import { matchFrontmatter } from "./frontmatter";
 
 // Line classifiers used only for placing preserve directives.
 function isTableDelimiter(line: string): boolean {
@@ -70,8 +72,7 @@ export function addPreserveDirectives(content: string, effective: EffectiveSetti
       effective.links.referenceDefinitions === "preserve" &&
       /^[ ]{0,3}\[[^\]\n]+\]:\s+\S+/.test(line)
     ) {
-      out.push("<!-- markdown-formatter:preserve:referenceDefinitions -->");
-      out.push("<!-- prettier-ignore -->");
+      addDirective("referenceDefinitions");
     }
     if (
       effective.obsidianSyntax.callouts === "preserve" &&
@@ -103,33 +104,46 @@ export function addPreserveDirectives(content: string, effective: EffectiveSetti
 /** Strip the shield comments added by {@link addPreserveDirectives}. */
 export function removePreserveDirectives(content: string): string {
   return content.replace(
-    /<!-- markdown-formatter:preserve:(?:tables|lists|fencedCodeBlocks|blockquotes|horizontalRules|referenceDefinitions|obsidianCallout) -->\r?\n<!-- prettier-ignore -->\r?\n/g,
+    /<!-- markdown-formatter:preserve:[A-Za-z]+ -->\r?\n<!-- prettier-ignore -->\r?\n/g,
     "",
   );
 }
 
 /**
- * Split the leading Properties block off `content` so Prettier never sees it, and
- * return a `restore` that reattaches it byte-for-byte. The match includes the
- * blank lines after the closing `---` so they survive reformatting of the body.
+ * Split the leading Properties block (and the blank lines after it) off
+ * `content` so Prettier never sees it. `restore` reattaches it unchanged except
+ * for its line endings, which follow the formatted body.
  */
 export function extractProtectedFrontmatter(
   content: string,
   effective: EffectiveSettings,
 ): { content: string; restore: (value: string) => string } {
-  if (effective.obsidianSyntax.properties !== "preserve")
-    return { content, restore: (value) => value };
-  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n(?:[ \t]*\r?\n)*)?/);
-  if (!match) return { content, restore: (value) => value };
-  const prefix = match[0];
-  return { content: content.slice(prefix.length), restore: (value) => `${prefix}${value}` };
+  const block = effective.obsidianSyntax.properties === "preserve" && matchFrontmatter(content);
+  if (!block) return { content, restore: (value) => value };
+  const end =
+    block.length + (/^(?:[ \t]*\r?\n)*/.exec(content.slice(block.length))?.[0].length ?? 0);
+  const prefix = content.slice(0, end);
+  return {
+    content: content.slice(end),
+    restore: (value) => `${withLineEndingsOf(value, prefix)}${value}`,
+  };
 }
+
+/** `text` with its line endings converted to those of `reference`; unchanged if `reference` has none. */
+function withLineEndingsOf(reference: string, text: string): string {
+  const eol = reference.includes("\r\n") ? "\r\n" : reference.includes("\n") ? "\n" : null;
+  return eol === null ? text : text.replace(/\r?\n/g, eol);
+}
+
+const TOKEN_PATTERN = /MDF[A-Z]+TOKEN\d{8,}X/g;
+/** Protected kinds can nest (a tag inside a highlight inside a comment ...); one pass per level. */
+const MAX_RESTORE_PASSES = 8;
 
 /**
  * A run of opaque placeholder tokens. `protect` swaps a matched fragment for a
- * token; `restore` swaps every token back — looping in case a restored fragment
- * holds another token (nested protection). `replaceAll(token, () => original)`
- * uses a function replacer so `$&`/`$1` in `original` stay literal.
+ * token; `restore` swaps every token back in one linear pass per nesting level
+ * (a restored fragment may hold another token). The function replacer keeps
+ * `$&`/`$1` in an original literal.
  */
 function createTokenStore(defaultKind: string) {
   const originals = new Map<string, string>();
@@ -141,14 +155,14 @@ function createTokenStore(defaultKind: string) {
   };
   const restore = (value: string): string => {
     let restored = value;
-    for (let pass = 0; pass < 4; pass += 1) {
+    for (let pass = 0; pass < MAX_RESTORE_PASSES; pass += 1) {
       let changed = false;
-      for (const [token, original] of originals) {
-        if (restored.includes(token)) {
-          restored = restored.replaceAll(token, () => original);
-          changed = true;
-        }
-      }
+      restored = restored.replace(TOKEN_PATTERN, (token) => {
+        const original = originals.get(token);
+        if (original === undefined) return token; // another store's token
+        changed = true;
+        return original;
+      });
       if (!changed) break;
     }
     return restored;

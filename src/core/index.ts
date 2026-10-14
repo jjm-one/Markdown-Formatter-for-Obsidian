@@ -1,7 +1,9 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /** Public surface of the shared formatter core. */
 
+export * from "./build-info";
 export * from "./config";
 export * from "./errors";
 export * from "./frontmatter";

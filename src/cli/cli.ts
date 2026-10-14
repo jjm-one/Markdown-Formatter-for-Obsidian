@@ -1,16 +1,19 @@
 #!/usr/bin/env node
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /** Process entrypoint for the standalone CLI: parse argv, run, print, set the exit code. */
 
 import { promises as fs } from "node:fs";
 import process from "node:process";
-import { cliExitCode, errorMessage, parseCliArgs, renderResult, runStandalone } from "./cli-lib";
-import { renderReport, REPORT_FORMATS } from "./report";
+import { BUILD_INFO, buildDetails, errorMessage } from "../core";
+import { parseCliArgs } from "./args";
+import { renderResult } from "./output";
+import { renderReport } from "./report";
+import { cliExitCode, runStandalone } from "./run";
+import { REPORT_FORMATS } from "./types";
 
-/** Injected by esbuild at build time from `package.json`. */
-declare const __PACKAGE_VERSION__: string;
-const VERSION = __PACKAGE_VERSION__;
+const VERSION = BUILD_INFO.version;
 const NAME = "Markdown Formatter for Obsidian";
 const TOOL_ID = "markdown-formatter";
 const INFORMATION_URI = "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian";
@@ -21,7 +24,7 @@ function printHelp(): void {
 Usage:
   markdown-formatter <check|format> [workspace] [options]
   markdown-formatter --help
-  markdown-formatter --version
+  markdown-formatter --version         (or: markdown-formatter version)
 
 Modes:
   check    Validate Markdown without modifying files.
@@ -33,8 +36,10 @@ Options:
                            (default: .markdown-formatter.json)
   --ignore-file <path>     Ignore file relative to workspace
   --exclude <pattern>      Add an ignore pattern; repeatable
-  --show-errors, --errors  In check mode, show line-level differences
-  --max-errors <n>         Maximum differences shown per file (1-1000; default: 20)
+  --show-errors, --errors  In check mode, show each required change compactly
+                           (location, description, current and expected text)
+  --max-errors <n>         Maximum changes shown per file by --show-errors
+                           (1-1000; default: 20)
   --show-changes, --changes
                            List every required change: a description
                            (e.g. "line 12: Change the list marker "*" to "-".")
@@ -42,12 +47,17 @@ Options:
   --report-file <path>     Write a detailed change report to this file
   --report-format <fmt>    Report format: ${REPORT_FORMATS.join(" | ")} (default: text)
                            gitlab = Code Quality report; sarif = GitHub code scanning
+  --trust-prettier-config  Allow Prettier configuration that can run code
+                           (JS/TS config files, shared configs, plugins).
+                           Only for workspaces you trust.
   -q, --quiet              Only print final status and failures
   --verbose                Print every processed file
   --debug                  Print resolved paths/options plus verbose output
   --verbosity <level>      quiet | normal | verbose | debug
   -h, --help               Show this help
-  -V, --version            Show version information
+  -V, --version            Show version, build, and license information
+
+  Options taking a value also accept --option=value.
 
 Examples:
   markdown-formatter check .
@@ -71,7 +81,15 @@ Configuration:
 
 function printVersion(): void {
   console.log(`${NAME} ${VERSION}`);
-  console.log(`Node ${process.versions.node}`);
+  console.log(`Build:   ${buildDetails()}`);
+  console.log(`Node.js: ${process.versions.node}`);
+  console.log(`
+Copyright (C) 2026 jjm.one
+License LGPL-3.0-only: GNU Lesser General Public License v3.0 only.
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Third-party licenses are reproduced at the end of this file.
+Source: ${INFORMATION_URI}`);
 }
 
 async function main(): Promise<void> {
@@ -94,7 +112,7 @@ async function main(): Promise<void> {
     printHelp();
     return;
   }
-  if (args.includes("--version") || args.includes("-V")) {
+  if (args[0] === "version" || args.includes("--version") || args.includes("-V")) {
     printVersion();
     return;
   }
@@ -112,6 +130,7 @@ async function main(): Promise<void> {
       console.log(
         `[debug] report file: ${options.reportFile ?? "(none)"} (format: ${options.reportFormat})`,
       );
+      console.log(`[debug] trust Prettier config: ${options.trustPrettierConfig ? "yes" : "no"}`);
     }
     const result = await runStandalone(options);
     renderResult(result, options.mode, options.verbosity, options.showErrors, options.showChanges);

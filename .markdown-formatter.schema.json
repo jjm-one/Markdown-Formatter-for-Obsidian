@@ -158,7 +158,6 @@
             "minLength": 1,
             "maxLength": 4096
           },
-          "uniqueItems": true,
           "default": [],
           "description": "Additional glob-style ignore patterns. Prefix a pattern with ! to re-include a path.",
           "maxItems": 10000

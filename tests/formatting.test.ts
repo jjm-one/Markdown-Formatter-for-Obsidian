@@ -1,12 +1,12 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it, vi } from "vitest";
-import { TFile } from "obsidian";
-import { createFakeApp } from "./helpers";
+import { createFakeApp, makeFile } from "./helpers";
 import { effectiveSettingsFromProject, resolvePrettierOptions } from "../src/core";
 
 describe("formatting pipeline", () => {
   it("rewrites a compact GFM table by default", async () => {
-    const file = new TFile("table.md");
+    const file = makeFile("table.md");
     const { plugin, files } = createFakeApp({
       files: { "table.md": "|Name|Value|\n|-|-|\n|foo|123|\n" },
     });
@@ -18,7 +18,7 @@ describe("formatting pipeline", () => {
 
   it("preserves table source when table mode is preserve", async () => {
     const original = "|Name|Value|\n|-|-|\n|foo|123|\n";
-    const file = new TFile("table.md");
+    const file = makeFile("table.md");
     const { plugin, files } = createFakeApp({ files: { "table.md": original } });
     await plugin.loadSettings();
     plugin.settings.markdownStructures.tables = "preserve";
@@ -28,7 +28,7 @@ describe("formatting pipeline", () => {
   });
 
   it("does not write when formatting is already stable", async () => {
-    const file = new TFile("stable.md");
+    const file = makeFile("stable.md");
     const original = "# Stable\n\nText.\n";
     const { plugin, app } = createFakeApp({ files: { "stable.md": original } });
     await plugin.loadSettings();
@@ -38,7 +38,7 @@ describe("formatting pipeline", () => {
   });
 
   it("prevents re-entrant formatting of the same file", async () => {
-    const file = new TFile("same.md");
+    const file = makeFile("same.md");
     const { plugin, app } = createFakeApp({ files: { "same.md": "# x\n" } });
     await plugin.loadSettings();
     (plugin as any).formatting.add(file.path);

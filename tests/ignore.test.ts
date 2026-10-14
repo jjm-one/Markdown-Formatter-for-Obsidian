@@ -1,6 +1,10 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it } from "vitest";
-import { createIgnoreMatcher, isPathIgnored, parseIgnorePatterns } from "../src/core";
+import { createIgnoreMatcher, parseIgnorePatterns } from "../src/core";
+
+const isPathIgnored = (path: string, patterns: string[]) =>
+  createIgnoreMatcher(patterns).matches(path);
 
 describe("formatting exclusions", () => {
   it("parses comments and blank lines from the ignore file", () => {
@@ -54,16 +58,10 @@ describe("formatting exclusions", () => {
     expect(matcher.matches("drop.generated.md")).toBe(true);
     expect(matcher.matches("important.generated.md")).toBe(false);
     expect(matcher.matches("keep.md")).toBe(false);
-    // isPathIgnored delegates to the same matcher and must agree with it.
-    for (const path of [
-      "Templates/daily.md",
-      "drop.generated.md",
-      "important.generated.md",
-      "keep.md",
-    ]) {
-      expect(
-        isPathIgnored(path, ["Templates/**", "*.generated.md", "!important.generated.md"]),
-      ).toBe(matcher.matches(path));
-    }
+  });
+
+  it("rejects pattern lists with NUL characters or oversized patterns", () => {
+    expect(() => createIgnoreMatcher(["a\0b"])).toThrow("NUL");
+    expect(() => createIgnoreMatcher(["x".repeat(4097)])).toThrow("4096");
   });
 });

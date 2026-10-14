@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 // Exercise the bundled CLI end to end: help, version, diagnostics, verbosity, check, format, bad args.
 import fs from "node:fs";
@@ -31,6 +32,18 @@ for (const bundle of ["main.js", cli]) {
   createRequire(shimUrl); // must also be a valid createRequire() base
 }
 
+// Each distributed bundle carries its own license and the third-party licenses.
+for (const bundle of ["main.js", cli]) {
+  if (!fs.existsSync(bundle)) continue;
+  const text = fs.readFileSync(bundle, "utf8");
+  if (!text.slice(0, 500).includes("SPDX-License-Identifier: LGPL-3.0-only")) {
+    throw new Error(`${bundle}: license header missing.`);
+  }
+  if (!text.includes("Third-party software in ") || !text.includes("prettier@")) {
+    throw new Error(`${bundle}: third-party licenses are not embedded.`);
+  }
+}
+
 function run(args) {
   return spawnSync(process.execPath, [cli, ...args], { encoding: "utf8" });
 }
@@ -44,9 +57,16 @@ if (
   throw new Error(`CLI help smoke test failed.\n${help.stdout}\n${help.stderr}`);
 }
 
-const version = run(["--version"]);
-if (version.status !== 0 || !/Markdown Formatter for Obsidian \d+\.\d+\.\d+/.test(version.stdout)) {
-  throw new Error(`CLI version smoke test failed.\n${version.stdout}\n${version.stderr}`);
+for (const args of [["--version"], ["version"]]) {
+  const version = run(args);
+  if (
+    version.status !== 0 ||
+    !/Markdown Formatter for Obsidian \d+\.\d+\.\d+/.test(version.stdout) ||
+    !/^Build: {3}\w+ build/m.test(version.stdout) ||
+    !version.stdout.includes("LGPL-3.0-only")
+  ) {
+    throw new Error(`CLI ${args[0]} smoke test failed.\n${version.stdout}\n${version.stderr}`);
+  }
 }
 
 const badArgs = run(["check", ".", "--not-a-real-option"]);
@@ -109,6 +129,40 @@ try {
     }
   }
 
+  // Prettier configuration that can run code is refused unless trusted. Checked on
+  // the minified bundle, since the check relies on Prettier's bundled YAML parser.
+  const evil =
+    'require("node:fs").writeFileSync(__dirname + "/PWNED", "ran"); module.exports = {};';
+  for (const [configName, configText] of [
+    ["prettier.config.cjs", evil],
+    [".prettierrc", "./evil.cjs\n"],
+  ]) {
+    const trustRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mdf-cli-trust-"));
+    try {
+      fs.writeFileSync(path.join(trustRoot, "note.md"), "# Hi\n", "utf8");
+      fs.writeFileSync(path.join(trustRoot, "evil.cjs"), evil, "utf8");
+      fs.writeFileSync(path.join(trustRoot, configName), configText, "utf8");
+      const refused = run(["check", trustRoot]);
+      if (
+        refused.status !== 2 ||
+        !refused.stderr.includes("can run code") ||
+        fs.existsSync(path.join(trustRoot, "PWNED"))
+      ) {
+        throw new Error(
+          `Expected ${configName} to be refused without running.\n${refused.stdout}\n${refused.stderr}`,
+        );
+      }
+      const trusted = run(["check", trustRoot, "--trust-prettier-config"]);
+      if (trusted.status !== 0 || !fs.existsSync(path.join(trustRoot, "PWNED"))) {
+        throw new Error(
+          `Expected a trusted ${configName} to load.\n${trusted.stdout}\n${trusted.stderr}`,
+        );
+      }
+    } finally {
+      fs.rmSync(trustRoot, { recursive: true, force: true });
+    }
+  }
+
   const verboseCheck = run(["check", root, "--verbose"]);
   if (verboseCheck.status !== 1 || !verboseCheck.stdout.includes("CHANGE")) {
     throw new Error(
@@ -131,7 +185,7 @@ try {
   }
 
   console.log(
-    "Bundled standalone CLI smoke test passed (help, version, diagnostics, change reports, verbosity, check, format, and invalid arguments).",
+    "Bundled standalone CLI smoke test passed (license notices, help, version, diagnostics, change reports, Prettier trust, verbosity, check, format, and invalid arguments).",
   );
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

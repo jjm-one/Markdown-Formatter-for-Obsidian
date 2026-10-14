@@ -8,32 +8,31 @@ If you just want a quick start: install the plugin, open a note, and run the com
 
 ## Contents
 
-- [Obsidian plugin guide](#obsidian-plugin-guide)
-  - [Contents](#contents)
-  - [What the plugin does](#what-the-plugin-does)
-  - [Before you install](#before-you-install)
-  - [Installing the plugin](#installing-the-plugin)
-    - [Option A — BRAT (recommended)](#option-a--brat-recommended)
-    - [Option B — Manual install](#option-b--manual-install)
-    - [Option C — Latest development build](#option-c--latest-development-build)
-  - [Your first format](#your-first-format)
-  - [Ways to run the formatter](#ways-to-run-the-formatter)
-  - [Automatic formatting](#automatic-formatting)
-  - [The settings tab, explained](#the-settings-tab-explained)
-    - [Project configuration](#project-configuration)
-    - [Formatting triggers](#formatting-triggers)
-    - [Formatter](#formatter)
-    - [Note properties](#note-properties)
-    - [Markdown structure formatting](#markdown-structure-formatting)
-    - [Link formatting](#link-formatting)
-    - [Obsidian compatibility](#obsidian-compatibility)
-    - [Markdownlint](#markdownlint)
-  - [Commands reference](#commands-reference)
-  - [Excluding notes from formatting](#excluding-notes-from-formatting)
-  - [Sharing one set of rules with other people](#sharing-one-set-of-rules-with-other-people)
-  - [What happens when something is misconfigured](#what-happens-when-something-is-misconfigured)
-  - [Troubleshooting](#troubleshooting)
-  - [FAQ](#faq)
+- [What the plugin does](#what-the-plugin-does)
+- [Before you install](#before-you-install)
+- [Installing the plugin](#installing-the-plugin)
+  - [Option A — BRAT (recommended)](#option-a--brat-recommended)
+  - [Option B — Manual install](#option-b--manual-install)
+  - [Option C — Latest development build](#option-c--latest-development-build)
+- [Your first format](#your-first-format)
+- [Ways to run the formatter](#ways-to-run-the-formatter)
+- [Automatic formatting](#automatic-formatting)
+- [The settings tab, explained](#the-settings-tab-explained)
+  - [Project configuration](#project-configuration)
+  - [Formatting triggers](#formatting-triggers)
+  - [Formatter](#formatter)
+  - [Note properties](#note-properties)
+  - [Markdown structure formatting](#markdown-structure-formatting)
+  - [Link formatting](#link-formatting)
+  - [Obsidian compatibility](#obsidian-compatibility)
+  - [Markdownlint](#markdownlint)
+  - [About](#about)
+- [Commands reference](#commands-reference)
+- [Excluding notes from formatting](#excluding-notes-from-formatting)
+- [Sharing one set of rules with other people](#sharing-one-set-of-rules-with-other-people)
+- [What happens when something is misconfigured](#what-happens-when-something-is-misconfigured)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
 
 ---
 
@@ -110,6 +109,7 @@ Your note still renders exactly the same in Obsidian — only the raw text chang
    <YourVault>/.obsidian/plugins/markdown-formatter/manifest.json
    <YourVault>/.obsidian/plugins/markdown-formatter/styles.css
    ```
+   plus the license files that ship with the plugin.
 5. Back in Obsidian: **Settings → Community plugins**, click the reload icon (or restart Obsidian), then enable **Markdown Formatter**.
 
 To update later, download the newer ZIP and replace the folder contents.
@@ -122,7 +122,7 @@ Every successful CI run publishes a rolling prerelease per branch: **`develop-la
 https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/develop-latest/markdown-formatter-develop.zip
 ```
 
-Its manifest version is stamped `0.1.0-<channel>.<run>.<sha>`, and the archived `build-info.json` records the exact source commit.
+Its manifest version is stamped `<version>-<channel>.<run>.<sha>`, and the archived `build-info.json` records the exact source commit.
 
 ---
 
@@ -211,10 +211,11 @@ See [Sharing one set of rules with other people](#sharing-one-set-of-rules-with-
 
 ### Formatter
 
-| Setting                                            | Default  | Meaning                                                                                                                                                                                                                                     |
-| -------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Use project Prettier and EditorConfig settings** | On       | Also read any `.editorconfig` or Prettier config file that applies to the note (for indent size, line endings, etc.). If you have no such files, this does nothing. Turn off only if a config file is producing output you don't want.      |
-| **Prose wrapping**                                 | Preserve | What to do with long paragraphs of text. **Preserve**: leave your line breaks exactly as they are (recommended). **Always wrap**: hard-wrap paragraphs at the configured width. **Never wrap**: join wrapped paragraphs into one long line. |
+| Setting                                            | Default  | Meaning                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Use project Prettier and EditorConfig settings** | On       | Also read any `.editorconfig` or Prettier config file that applies to the note (line endings, indentation, etc. — [which settings apply](CONFIGURATION.md#editorconfig-and-prettier)). If you have no such files, this does nothing. Turn off only if a config file is producing output you don't want.               |
+| **Trust Prettier configuration**                   | Off      | Also load Prettier configuration that can run code: `prettier.config.js`-style files, configs that name a shared-config package, and Prettier plugins. Off, such a config stops formatting with an explanation instead of running. Turn on only for vaults you trust; stored on this device only, never in the vault. |
+| **Prose wrapping**                                 | Preserve | What to do with long paragraphs of text. **Preserve**: leave your line breaks exactly as they are (recommended). **Always wrap**: hard-wrap paragraphs at the configured width. **Never wrap**: join wrapped paragraphs into one long line.                                                                           |
 
 ### Note properties
 
@@ -267,6 +268,10 @@ If you switch one of these to _Allow formatter_, a generic Markdown formatter ma
 | ------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Apply markdownlint fixes**   | On                   | After Prettier runs, also apply safe automatic fixes from markdownlint rules (things Prettier doesn't handle). Turn off to let Prettier be the only formatter.                                                                                                                                                                               |
 | **Markdownlint configuration** | (a small JSON block) | Advanced: which markdownlint rules are on/off. You rarely need to touch this. The defaults are chosen to work well with Obsidian; see [Configuration → markdownlint](CONFIGURATION.md#markdownlint) for exactly which rules are disabled and why. If you edit the JSON and it is invalid, the plugin ignores it and keeps the safe defaults. |
+
+### About
+
+Shows the installed version and how it was built — release, `main`/`develop` development build, or local build — with the source commit and its date, plus your Obsidian version. **Copy** puts that line on the clipboard; please include it in bug reports.
 
 ---
 
@@ -369,6 +374,9 @@ Your Obsidian is likely older than 1.13.7. Update Obsidian (**Settings → About
 
 **Nothing happens when I run the format command.**
 Check the note is a `.md` file and is the active tab. If you see "excluded from formatting", it matches a line in your ignore file. If you see a message about invalid configuration, fix `.markdown-formatter.json` and reload it.
+
+**"Prettier configuration … can run code, so it was not loaded."**
+A Prettier config that applies to the note is a JavaScript/TypeScript file or names a shared-config package. Convert it to a `.prettierrc.json` file, or — if you trust the vault — turn on **Trust Prettier configuration** under _Formatter_. See [Configuration → Prettier configuration that can run code](CONFIGURATION.md#prettier-configuration-that-can-run-code).
 
 **Continuous formatting interrupts my writing.**
 Increase **Debounce** (e.g. to 3000 ms), or turn off _Continuous formatting_ and use _Format on file close_.

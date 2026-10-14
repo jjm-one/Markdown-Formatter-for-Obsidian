@@ -1,6 +1,7 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it } from "vitest";
-import type { CliResult } from "../src/cli/cli-lib";
+import type { CliResult } from "../src/cli/types";
 import { formatChangeDetail, renderReport, visibleLine, type ReportMeta } from "../src/cli/report";
 
 const meta: ReportMeta = {
@@ -17,7 +18,6 @@ function result(overrides: Partial<CliResult> = {}): CliResult {
     formatted: 0,
     unchanged: 1,
     failed: 0,
-    files: ["note.md"],
     entries: [
       {
         file: "note.md",
@@ -142,6 +142,41 @@ describe("renderReport", () => {
       fingerprint: string;
     }>;
     expect(issues[0]?.fingerprint).not.toBe(issues[1]?.fingerprint);
+  });
+
+  it("gives identical SARIF results in one file distinct fingerprints that survive line shifts", () => {
+    const trailing = (line: number) => ({
+      anchor: "at" as const,
+      line,
+      endLine: line,
+      kind: "trailing-whitespace" as const,
+      message: "Remove the trailing whitespace (2 spaces).",
+      before: ["x  "],
+      after: ["x"],
+    });
+    const fingerprints = (lines: number[]) =>
+      (
+        JSON.parse(
+          renderReport(
+            result({
+              entries: [
+                {
+                  file: "note.md",
+                  status: "needs-formatting",
+                  diagnostics: [],
+                  changes: lines.map(trailing),
+                },
+              ],
+            }),
+            "check",
+            "sarif",
+            meta,
+          ),
+        ) as { runs: Array<{ results: Array<{ partialFingerprints: Record<string, string> }> }> }
+      ).runs[0]?.results.map((r) => r.partialFingerprints.formatterChange);
+    const before = fingerprints([3, 9]);
+    expect(before?.[0]).not.toBe(before?.[1]);
+    expect(fingerprints([5, 11])).toEqual(before);
   });
 
   it("renders GitHub-compatible SARIF 2.1.0", () => {

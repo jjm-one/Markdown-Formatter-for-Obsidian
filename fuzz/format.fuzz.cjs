@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // jazzer.js fuzz target: throw arbitrary bytes at the whole `formatMarkdown()`

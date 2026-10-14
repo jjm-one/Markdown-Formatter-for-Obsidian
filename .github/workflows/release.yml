@@ -81,6 +81,7 @@ jobs:
             markdown-formatter-cli.cjs
             manifest.json
             styles.css
+            THIRD_PARTY_LICENSES.txt
             release/*.zip
             release/*.tgz
 
@@ -108,7 +109,9 @@ jobs:
             manifest.json
             styles.css
             LICENSE
+            LICENSES/GPL-3.0-only.txt
             THIRD_PARTY_NOTICES.md
+            THIRD_PARTY_LICENSES.txt
             release/*.zip
             release/*.tgz
             release/*.intoto.jsonl

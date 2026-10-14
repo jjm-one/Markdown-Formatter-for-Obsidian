@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /** Best-effort human-readable message for any thrown value. */

@@ -1,7 +1,7 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it, vi } from "vitest";
-import { TFile } from "obsidian";
-import { createFakeApp } from "./helpers";
+import { createFakeApp, makeFile } from "./helpers";
 
 type Tab = {
   getControlValue(key: string): unknown;
@@ -45,13 +45,16 @@ describe("settings tab controls", () => {
 
   it("rejects invalid values and leaves the setting untouched", async () => {
     const { plugin, tab } = await loadTab();
-    await expect(tab.setControlValue("proseWrap", "sometimes")).rejects.toThrow("prose wrapping");
+    await expect(tab.setControlValue("proseWrap", "sometimes")).rejects.toThrow("proseWrap");
     await expect(tab.setControlValue("formatOnModify", "yes")).rejects.toThrow("true or false");
     await expect(tab.setControlValue("markdownStructures.tables", "nope")).rejects.toThrow(
-      "Markdown structure mode",
+      "markdownStructures.tables",
     );
     await expect(tab.setControlValue("obsidianSyntax.math", "nope")).rejects.toThrow(
-      "Obsidian syntax mode",
+      "obsidianSyntax.math",
+    );
+    await expect(tab.setControlValue("ignore", { file: "x" })).rejects.toThrow(
+      "Unknown plugin setting",
     );
     await expect(tab.setControlValue("debounceMs", Number.NaN)).rejects.toThrow("finite number");
     await expect(tab.setControlValue("projectConfigPath", "../escape.json")).rejects.toThrow(
@@ -88,6 +91,15 @@ describe("settings tab controls", () => {
     expect(ribbon).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the version and build in an About group", async () => {
+    const { tab } = await loadTab();
+    const groups = tab.getSettingDefinitions() as { heading: string; items: any[] }[];
+    const about = groups.find((group) => group.heading === "About");
+    expect(about?.items[0]?.desc).toMatch(
+      /^Markdown Formatter development \(development build\) · Obsidian 1\.13\.7$/,
+    );
+  });
+
   it("builds every setting group without a browser DOM", async () => {
     const { tab } = await loadTab();
     const groups = tab.getSettingDefinitions() as { heading: string; items: unknown[] }[];
@@ -105,7 +117,7 @@ describe("settings tab controls", () => {
   it("validates the updated-date property name and re-evaluates the field on toggle", async () => {
     const { plugin, tab } = await loadTab();
     await expect(tab.setControlValue("updatedProperty", "bad:name")).rejects.toThrow(
-      "property name",
+      "updatedProperty",
     );
     expect(plugin.settings.updatedProperty).toBe("updated");
 
@@ -153,6 +165,19 @@ describe("settings tab with a vault project config file", () => {
     expect(tab.getControlValue("proseWrap")).toBe("always");
   });
 
+  it("keeps Prettier trust a plugin-only setting, never written to the file", async () => {
+    const { plugin, tab, files } = await loadTab({
+      [CONFIG_PATH]: JSON.stringify({ proseWrap: "never" }),
+    });
+    const reload = vi.spyOn(plugin, "loadProjectConfig");
+    expect(tab.getControlValue("trustPrettierConfig")).toBe(false);
+    await tab.setControlValue("trustPrettierConfig", true);
+    expect(plugin.settings.trustPrettierConfig).toBe(true);
+    expect((plugin as any).data.trustPrettierConfig).toBe(true);
+    expect(readConfig(files).trustPrettierConfig).toBeUndefined();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
   it("routes the markdownlint editor to the file too", async () => {
     const { tab, files } = await loadTab({ [CONFIG_PATH]: JSON.stringify({ proseWrap: "never" }) });
     await tab.saveMarkdownlintJson('{ "MD013": true }');
@@ -164,7 +189,7 @@ describe("settings tab with a vault project config file", () => {
     const updatesBefore = env.tab.updateCount;
 
     env.files.set(CONFIG_PATH, JSON.stringify({ proseWrap: "always" }));
-    await env.emitVault("modify", new TFile(CONFIG_PATH) as any);
+    await env.emitVault("modify", makeFile(CONFIG_PATH) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(env.tab.getControlValue("proseWrap")).toBe("always");
@@ -177,13 +202,13 @@ describe("settings tab with a vault project config file", () => {
 
     await env.tab.setControlValue("proseWrap", "always");
     // Simulate the vault emitting the modify event for our own write.
-    await env.emitVault("modify", new TFile(CONFIG_PATH) as any);
+    await env.emitVault("modify", makeFile(CONFIG_PATH) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(readConfig(env.files).proseWrap).toBe("always");
-    expect((env.plugin as any).projectConfig.proseWrap).toBe("always");
+    expect(env.plugin.vaultConfig.project?.proseWrap).toBe("always");
     // The echo is swallowed: no error state, value still correct.
-    expect((env.plugin as any).projectConfigError).toBeNull();
+    expect(env.plugin.vaultConfig.projectError).toBeNull();
     reload.mockRestore();
   });
 

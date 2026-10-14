@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /**
@@ -13,10 +14,7 @@ import {
   type ChangeKind,
   type FormattingChange,
 } from "./changes";
-import type { CliFailure, CliFileResult, CliMode, CliResult, CliVerbosity } from "./cli-lib";
-
-export type ReportFormat = "text" | "json" | "gitlab" | "sarif";
-export const REPORT_FORMATS: readonly ReportFormat[] = ["text", "json", "gitlab", "sarif"];
+import type { CliFailure, CliFileResult, CliMode, CliResult, ReportFormat } from "./types";
 
 export interface ReportMeta {
   toolName: string;
@@ -30,21 +28,6 @@ export interface ReportMeta {
 export const CHANGE_LEGEND =
   'Legend: "-" current line, "+" formatted line, "·" space, "→" tab, "(blank line)" empty line.';
 
-/** Print the change list for `--show-changes` (suppressed at `quiet`); returns whether anything was printed. */
-export function printChanges(result: CliResult, mode: CliMode, verbosity: CliVerbosity): boolean {
-  if (verbosity === "quiet") return false;
-  const withChanges = result.entries.filter((entry) => (entry.changes?.length ?? 0) > 0);
-  if (withChanges.length === 0) return false;
-  console.log(`\n${CHANGE_LEGEND}`);
-  for (const entry of withChanges) {
-    console.log(`\n${fileHeading(entry, mode)}`);
-    for (const change of entry.changes ?? []) {
-      for (const line of formatChangeDetail(change)) console.log(line);
-    }
-  }
-  return true;
-}
-
 /**
  * One change as readable lines: the location and description, followed by the
  * exact current (`-`) and formatted (`+`) lines with whitespace made visible.
@@ -56,7 +39,7 @@ export function formatChangeDetail(change: FormattingChange, indent = "  "): str
 }
 
 /** `-`/`+` lines for a change; same-length changes interleave line by line. */
-export function changeDiffLines(change: FormattingChange): string[] {
+function changeDiffLines(change: FormattingChange): string[] {
   const { before, after } = change;
   const lines: string[] = [];
   if (before.length === after.length) {
@@ -107,7 +90,7 @@ function renderText(result: CliResult, mode: CliMode, meta: Required<ReportMeta>
     `Generated: ${meta.generatedAt}`,
     `Mode: ${mode}`,
     "",
-    summaryLine(result, mode),
+    `Summary: ${summarizeCounts(result, mode)}`,
     `Changes: ${total} in ${result.entries.filter((entry) => (entry.changes?.length ?? 0) > 0).length} file(s).`,
   ];
 
@@ -235,8 +218,14 @@ function renderSarif(result: CliResult, meta: ReportMeta): string {
   const results: unknown[] = [];
 
   for (const entry of result.entries) {
+    // Identical changes in one file are numbered, so each keeps its own alert;
+    // the line is left out, so a fingerprint survives edits above the change.
+    const occurrences = new Map<string, number>();
     for (const change of entry.changes ?? []) {
       usedKinds.add(change.kind);
+      const key = `${change.kind}\0${change.message}`;
+      const occurrence = (occurrences.get(key) ?? 0) + 1;
+      occurrences.set(key, occurrence);
       const { begin, end } = lineRange(change);
       const diff = changeDiffLines(change);
       const region: Record<string, unknown> =
@@ -253,7 +242,7 @@ function renderSarif(result: CliResult, meta: ReportMeta): string {
         },
         locations: [{ physicalLocation: { artifactLocation: { uri: entry.file }, region } }],
         partialFingerprints: {
-          formatterChange: fingerprintOf(entry.file, change.kind, change.message),
+          formatterChange: fingerprintOf(entry.file, change.kind, change.message, occurrence),
         },
         // Machine-applicable replacement of the original lines with the formatted ones.
         ...(change.anchor === "at" && lastBefore !== undefined && change.after.length > 0
@@ -366,19 +355,21 @@ function countByKind(result: CliResult): Map<ChangeKind, number> {
       counts.set(change.kind, (counts.get(change.kind) ?? 0) + 1);
     }
   }
-  return new Map([...counts].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])));
+  return new Map([...counts].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)));
 }
 
-function fileHeading(entry: CliFileResult, mode: CliMode): string {
+/** "<file> — N changes" heading above a file's change list. */
+export function fileHeading(entry: CliFileResult, mode: CliMode): string {
   const n = entry.changes?.length ?? 0;
   const label = n === 1 ? "1 change" : `${n} changes`;
   return `${entry.file} — ${label}${mode === "format" && entry.status === "formatted" ? " applied" : ""}`;
 }
 
-function summaryLine(result: CliResult, mode: CliMode): string {
+/** The run's file counts in one sentence, shared by the console summary and the text report. */
+export function summarizeCounts(result: CliResult, mode: CliMode): string {
   return mode === "check"
-    ? `Summary: ${result.scanned} file(s) checked; ${result.changed} need formatting, ${result.unchanged} clean, ${result.failed} failed.`
-    : `Summary: ${result.scanned} file(s) processed; ${result.formatted} formatted, ${result.unchanged} unchanged, ${result.failed} failed.`;
+    ? `${result.scanned} file(s) checked; ${result.changed} need formatting, ${result.unchanged} clean, ${result.failed} failed.`
+    : `${result.scanned} file(s) processed; ${result.formatted} formatted, ${result.unchanged} unchanged, ${result.failed} failed.`;
 }
 
 function fingerprintOf(...parts: readonly (string | number)[]): string {

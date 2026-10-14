@@ -6,11 +6,21 @@
 markdown-format:
   image: node:24
   stage: test
+  variables:
+    # SHA-256 of markdown-formatter-cli.cjs for the release in the URL below. Set it
+    # (e.g. from `sha256sum` after `gh attestation verify` on a trusted machine) so
+    # a replaced download can never run in your pipeline.
+    MARKDOWN_FORMATTER_SHA256: ""
   script:
     - >-
       curl -fsSL
       -o /tmp/markdown-formatter.cjs
       https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+    - >-
+      if [ -n "$MARKDOWN_FORMATTER_SHA256" ]; then
+      echo "$MARKDOWN_FORMATTER_SHA256  /tmp/markdown-formatter.cjs" | sha256sum -c -;
+      else echo "Warning: MARKDOWN_FORMATTER_SHA256 is not set; the download is not verified." >&2;
+      fi
     # `check` still fails the job (exit 1) when formatting is needed; the report
     # is written regardless, so the Code Quality widget always reflects this run.
     - node /tmp/markdown-formatter.cjs check . --report-file gl-code-quality-report.json --report-format gitlab

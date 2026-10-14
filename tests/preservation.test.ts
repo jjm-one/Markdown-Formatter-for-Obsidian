@@ -1,9 +1,9 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { TFile } from "obsidian";
-import { createFakeApp, effective } from "./helpers";
+import { createFakeApp, effective, makeFile } from "./helpers";
 import {
   addPreserveDirectives,
   extractProtectedFrontmatter,
@@ -11,6 +11,7 @@ import {
   protectInlineLinks,
   protectObsidianSyntax,
   removePreserveDirectives,
+  formatMarkdown,
 } from "../src/core";
 
 // `.txt`, not `.md`, so no Markdown formatter collapses the deliberate irregular
@@ -155,7 +156,7 @@ describe("Obsidian syntax preservation", () => {
   });
 
   it("preserves a full Obsidian fixture through formatFile", async () => {
-    const file = new TFile("fixture.md");
+    const file = makeFile("fixture.md");
     const { plugin, files } = createFakeApp({ files: { "fixture.md": fixture } });
     await plugin.loadSettings();
     await plugin.formatFile(file, false);
@@ -171,9 +172,8 @@ describe("Obsidian syntax preservation", () => {
       "==keep highlighted text==",
       "^[keep inline footnote]",
       "$a  +  b = c$",
-      // The display-math delimiters must round-trip intact: String.replaceAll
-      // treats "$$" in a plain-string replacement as a special pattern, so a
-      // naive restore silently collapses "$$" to "$" (regression coverage).
+      // Display-math delimiters must round-trip intact: a plain-string
+      // replacement would treat "$$" as a special pattern and collapse it to "$".
       "$$\n\\\\begin{aligned}",
       "\\\\end{aligned}\n$$",
       "```mermaid\ngraph TD\n    A --> B\n```",
@@ -190,8 +190,47 @@ describe("Obsidian syntax preservation", () => {
     expect(result.restore(result.content)).toBe(input);
   });
 
+  it("gives restored frontmatter the line endings of the formatted body", async () => {
+    const { plugin } = createFakeApp();
+    const e = { ...effective(privatePlugin(plugin)), usePrettierConfig: false };
+    const input = "---\r\ntitle: x\r\n---\r\n\r\n# Hi\r\n\r\n* a\r\n";
+    // Prettier writes LF by default: the frontmatter must follow, not stay CRLF.
+    expect(await formatMarkdown(input, "/no-config/note.md", e)).toBe(
+      "---\ntitle: x\n---\n\n# Hi\n\n- a\n",
+    );
+    const crlf = { ...e, prettier: { endOfLine: "crlf" as const } };
+    expect(await formatMarkdown("---\ntitle: x\n---\n\n# Hi\n", "/no-config/note.md", crlf)).toBe(
+      "---\r\ntitle: x\r\n---\r\n\r\n# Hi\r\n",
+    );
+  });
+
+  it("only treats a closing --- on its own line as the end of the frontmatter", () => {
+    const { plugin } = createFakeApp();
+    const e = effective(privatePlugin(plugin));
+    const input = "---\ntitle: x\n----\nBody\n";
+    expect(extractProtectedFrontmatter(input, e).content).toBe(input);
+  });
+
+  it("restores deeply nested protected constructs", () => {
+    const { plugin } = createFakeApp();
+    const e = effective(privatePlugin(plugin));
+    // A tag inside a highlight inside an inline footnote inside a comment.
+    const input = "%% note ^[see ==hot #tag/x== here] %% and $a$ ==b #c== ^id-1\n";
+    const result = protectObsidianSyntax(input, e);
+    expect(result.content).not.toContain("#tag/x");
+    expect(result.restore(result.content)).toBe(input);
+  });
+
+  it("terminates when the input already contains placeholder-shaped text", () => {
+    const { plugin } = createFakeApp();
+    const e = effective(privatePlugin(plugin));
+    const input = "%% MDFCOMMENTTOKEN00000000X %% MDFTAGTOKEN00000001X #tag\n";
+    const result = protectObsidianSyntax(input, e);
+    expect(typeof result.restore(result.content)).toBe("string");
+  });
+
   it("disables MD018 by default so a tag-shaped line is not rewritten into a heading", async () => {
-    const file = new TFile("tag.md");
+    const file = makeFile("tag.md");
     const { plugin, files } = createFakeApp({ files: { "tag.md": "#roadmap\n" } });
     await plugin.loadSettings();
     await plugin.formatFile(file, false);
@@ -199,7 +238,7 @@ describe("Obsidian syntax preservation", () => {
   });
 
   it("still fixes missing-space-atx headings when MD018 is explicitly re-enabled and tags are not preserved", async () => {
-    const file = new TFile("heading.md");
+    const file = makeFile("heading.md");
     const { plugin, files } = createFakeApp({ files: { "heading.md": "#Heading\n" } });
     await plugin.loadSettings();
     plugin.settings.obsidianSyntax.tags = "format";

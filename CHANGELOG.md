@@ -9,11 +9,34 @@ All notable changes to this project will be documented in this file, following
 ### Added
 
 - CLI: `--show-changes` prints every required change with its location, a plain-language description (e.g. `line 12: Change the list marker "*" to "-".`), and the exact current/formatted lines with visible whitespace.
-- CLI: `--report-file <path>` writes a change report, in `--report-format text` (default), `json`, `gitlab` (Code Quality / Code Climate JSON, for `artifacts: reports: codequality:`), or `sarif` (SARIF 2.1.0, for `github/codeql-action/upload-sarif`). The report always covers the full run, including read/format/write failures, with per-type counts and the exact before/after lines of every change. New examples: `examples/gitlab/.gitlab-ci.yml` (Code Quality) and `examples/github-actions/markdown-format-report.yml` (SARIF).
+- CLI: `--report-file <path>` writes a change report, in `--report-format text` (default), `json`, `gitlab` (Code Quality / Code Climate JSON, for `artifacts: reports: codequality:`), or `sarif` (SARIF 2.1.0, for `github/codeql-action/upload-sarif`). The report covers the full run, including read/format/write failures, with per-type counts and the exact before/after lines of every change. Examples: `examples/gitlab/.gitlab-ci.yml` (Code Quality) and `examples/github-actions/markdown-format-report.yml` (SARIF).
+- **Trust Prettier configuration** plugin setting (off by default, stored per device) and CLI flag `--trust-prettier-config`, to load Prettier configuration that can run code.
+- CLI: options that take a value also accept `--option=value`.
+- Version and build information (release or development channel, source commit, commit date): in a new **About** section of the plugin settings, with a **Copy** button for bug reports, and in the CLI's `--version` output, also available as `markdown-formatter version`.
+
+### Security
+
+- Formatting does not run code from the formatted folder unless trusted. Prettier `plugins` are ignored, and a JavaScript/TypeScript Prettier config or a config that names a shared-config package stops formatting with an explanation. In 0.1.0 such configuration was executed, including by the read-only `check` mode.
+- CLI: the temporary file used for atomic writes is created exclusively, so an existing file or symlink with that name is never written through.
+- The GitHub Actions examples verify the downloaded CLI's build provenance (`gh attestation verify`); the GitLab and Docker examples show how to pin its SHA-256.
+
+### Fixed
+
+- CRLF notes with preserved frontmatter were written with mixed line endings; the frontmatter now follows the formatted note's line endings.
+- `--show-errors` compared line N with line N, so one inserted line marked every following line as different. It now lists the aligned changes that `--show-changes` describes, and states how many were left out.
+- `--config` and `--ignore-file` rejected files inside the workspace whose names start with `..` (such as `..ignore`).
+- File order in output and reports depended on the machine's locale; it is now the same everywhere.
+- A frontmatter block closed by a line longer than `---` (such as `----`) was treated as closed.
+- The plugin ignored notes with an upper-case `.MD` extension, which the CLI formats; both now match `.md` in any letter case.
+- The JSON schema rejected repeated `ignore.patterns`, which the formatter accepts and which can be meaningful with `!` re-includes.
+- Third-party notices covered only Prettier and markdownlint. Every distributed bundle now carries the license texts of all bundled packages, including Prettier's own third-party notices, and releases ship `THIRD_PARTY_LICENSES.txt` and the GNU GPL v3.0 text that the LGPL incorporates.
 
 ### Changed
 
-- Pinned Node.js to `24.21.0`, the current "Krypton" LTS release (`.nvmrc`, `.node-version`). npm stays `11.19.0` — already the version 24.21.0 bundles.
+- CLI: files are formatted several at a time; output order is unchanged.
+- Production bundles are minified.
+- `debounceMs` must be a whole number of milliseconds, as the JSON schema already required, and `ignore.file` is limited to 4096 characters.
+- Pinned Node.js to `24.21.0`, the current "Krypton" LTS release (`.nvmrc`, `.node-version`). npm stays `11.19.0`, the version Node.js 24.21.0 bundles.
 
 ## [0.1.0] - 2026-09-03
 

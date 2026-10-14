@@ -18,7 +18,7 @@ Generic Markdown formatters do not understand every Obsidian extension. This plu
 - Fenced code blocks, including Mermaid and plugin-specific fenced languages.
 - Reference definitions and angle-bracket autolinks.
 
-Properties/frontmatter is removed from the generic formatting pass and reattached unchanged. Other protected blocks/tokens are shielded while Prettier and markdownlint process surrounding Markdown.
+Properties/frontmatter is removed from the generic formatting pass and reattached unchanged, apart from its line endings, which follow the rest of the note. Other protected blocks/tokens are shielded while Prettier and markdownlint process surrounding Markdown.
 
 ## Why fenced code defaults to preserve
 
@@ -34,6 +34,6 @@ The markdownlint pass runs after Prettier and only applies fixes from enabled ru
 
 The full list and rationale: [Configuration → markdownlint](CONFIGURATION.md#markdownlint).
 
-## Regression guard
+## Guarding the defaults
 
-`npm run check:obsidian` verifies that the project schema, example configuration, and source defaults continue to preserve the compatibility-sensitive constructs. CI runs this check on every pull request and on every push to `main` or `develop`.
+`tests/config.test.ts` verifies that the built-in defaults, the example configuration, and the project schema continue to preserve the compatibility-sensitive constructs. CI runs it on every pull request and on every push to `main` or `develop`.

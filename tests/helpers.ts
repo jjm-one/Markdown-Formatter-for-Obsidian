@@ -1,8 +1,27 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { FileSystemAdapter, MarkdownView, TFile } from "obsidian";
 import MarkdownFormatterPlugin from "../src/plugin/main";
 
 type FakeEventMap = Record<string, Array<(value?: any) => any>>;
+
+// Tests run against tests/mocks/obsidian.ts but type-check against the real
+// Obsidian API, whose constructors differ; these factories bridge the two.
+
+/** A vault file at `path` (the mock's `TFile` takes its path). */
+export function makeFile(path: string): TFile {
+  return new (TFile as unknown as new (path: string) => TFile)(path);
+}
+
+function makeAdapter(basePath: string): FileSystemAdapter {
+  return new (FileSystemAdapter as unknown as new (basePath: string) => FileSystemAdapter)(
+    basePath,
+  );
+}
+
+function makeMarkdownView(file: TFile): MarkdownView {
+  return new (MarkdownView as unknown as new (file: TFile) => MarkdownView)(file);
+}
 
 export function createFakeApp(
   options: {
@@ -14,13 +33,13 @@ export function createFakeApp(
   const files = new Map(Object.entries(options.files ?? {}));
   const abstractFiles = new Map<string, TFile>();
   for (const path of files.keys())
-    if (path.endsWith(".md")) abstractFiles.set(path, new TFile(path));
+    if (path.endsWith(".md")) abstractFiles.set(path, makeFile(path));
   const vaultEvents: FakeEventMap = {};
   const workspaceEvents: FakeEventMap = {};
   const leaves: any[] = [];
   let activeFile = options.activeFile ?? null;
 
-  const adapter = new FileSystemAdapter("/vault") as any;
+  const adapter = makeAdapter("/vault") as any;
   adapter.exists = async (path: string) => await Promise.resolve(files.has(path));
   adapter.read = async (path: string) => await Promise.resolve(files.get(path) ?? "");
   adapter.write = async (path: string, value: string) => {
@@ -67,7 +86,7 @@ export function createFakeApp(
   };
 
   const app = { vault, workspace } as any;
-  const plugin = new MarkdownFormatterPlugin(app);
+  const plugin = new MarkdownFormatterPlugin(app, {} as any);
   (plugin as any).app = app;
 
   return {
@@ -78,7 +97,7 @@ export function createFakeApp(
     // Arrow-function properties so tests can destructure them without tripping
     // @typescript-eslint/unbound-method.
     addOpenFile: (file: TFile) => {
-      leaves.push({ view: new MarkdownView(file) });
+      leaves.push({ view: makeMarkdownView(file) });
       abstractFiles.set(file.path, file);
     },
     removeOpenFile: (path: string) => {

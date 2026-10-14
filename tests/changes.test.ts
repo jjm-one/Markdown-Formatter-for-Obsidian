@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import fs from "node:fs";
 import path from "node:path";
@@ -16,7 +17,7 @@ import { effectiveSettingsFromProject, formatMarkdown } from "../src/core";
  * endings, and the final newline, which are reported as file-level changes).
  */
 function applyChanges(original: string, changes: readonly FormattingChange[]): string[] {
-  const text = original.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const text = original.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   const lines = (text.endsWith("\n") ? text.slice(0, -1) : text).split("\n");
   if (text === "") lines.length = 0;
   // File-level changes (BOM, line endings, the final newline itself) carry no lines.
@@ -36,7 +37,7 @@ function applyChanges(original: string, changes: readonly FormattingChange[]): s
 }
 
 function linesOf(text: string): string[] {
-  const normalized = text.replace(/^﻿/, "").replaceAll("\r\n", "\n");
+  const normalized = text.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n");
   if (normalized === "") return [];
   return (normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized).split("\n");
 }
@@ -203,7 +204,7 @@ describe("createFormattingChanges", () => {
   });
 
   it("reports line-ending and BOM changes as whole-file changes", () => {
-    const changes = createFormattingChanges("﻿a\r\nb\r\n", "a\nb\n");
+    const changes = createFormattingChanges("\uFEFFa\r\nb\r\n", "a\nb\n");
     expect(changes.map((change) => [change.kind, change.message])).toEqual([
       ["encoding", "Remove the byte order mark (BOM) at the start of the file."],
       ["line-endings", "Convert CRLF line endings to LF."],

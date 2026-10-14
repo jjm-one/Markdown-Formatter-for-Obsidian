@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /**
@@ -6,7 +7,7 @@
  * exact original and expected lines.
  */
 
-import { diffLinesBounded } from "./diff";
+import { diffLines } from "./diff";
 
 export type ChangeKind =
   | "trailing-whitespace"
@@ -138,8 +139,8 @@ export function createFormattingChanges(original: string, formatted: string): Fo
   if (original === formatted) return [];
   const changes: FormattingChange[] = [];
 
-  const originalBom = original.startsWith("﻿");
-  const formattedBom = formatted.startsWith("﻿");
+  const originalBom = original.startsWith("\uFEFF");
+  const formattedBom = formatted.startsWith("\uFEFF");
   if (originalBom !== formattedBom) {
     changes.push(
       fileChange(
@@ -196,6 +197,41 @@ export function createFormattingChanges(original: string, formatted: string): Fo
   return changes;
 }
 
+/** One entry of the compact `check --show-errors` listing. */
+export interface FormattingDiagnostic {
+  /** Where the change applies, e.g. "line 3" or "after line 7"; empty for the omission note. */
+  location: string;
+  message: string;
+  /** The current lines, joined with "\n"; absent for a pure insertion. */
+  actual?: string;
+  /** The formatted lines, joined with "\n"; absent for a pure removal. */
+  expected?: string;
+}
+
+/**
+ * A bounded, compact view of `changes` for `check --show-errors`: one entry per
+ * change (at most `limit`), plus a note saying how many more were omitted.
+ */
+export function createFormattingDiagnostics(
+  changes: readonly FormattingChange[],
+  limit = 20,
+): FormattingDiagnostic[] {
+  const diagnostics: FormattingDiagnostic[] = changes.slice(0, limit).map((change) => ({
+    location: formatChangeLocation(change),
+    message: change.message,
+    ...(change.before.length > 0 ? { actual: change.before.join("\n") } : {}),
+    ...(change.after.length > 0 ? { expected: change.after.join("\n") } : {}),
+  }));
+  const omitted = changes.length - limit;
+  if (omitted > 0) {
+    diagnostics.push({
+      location: "",
+      message: `${plural(omitted, "further change")} omitted (limit ${limit}).`,
+    });
+  }
+  return diagnostics;
+}
+
 /** Render a change's location the way a person reading the file would say it. */
 export function formatChangeLocation(change: FormattingChange): string {
   if (change.anchor === "file") return "whole file";
@@ -226,9 +262,7 @@ function splitContent(text: string): { lines: string[]; finalNewline: boolean } 
   return { lines: body === "" && !finalNewline ? [] : body.split("\n"), finalNewline };
 }
 
-// ---------------------------------------------------------------------------
-// Line alignment
-// ---------------------------------------------------------------------------
+// --- Line alignment -----------------------------------------------------------
 
 const BULLET = /^([-*+])(?=\s|$)/;
 const ORDERED = /^(\d{1,9})([.)])(?=\s|$)/;
@@ -265,7 +299,7 @@ function describeLines(a: readonly string[], b: readonly string[]): FormattingCh
   }
   if (start === aEnd && start === bEnd) return [];
 
-  const ops = diffLinesBounded(
+  const ops = diffLines(
     a.slice(start, aEnd).map(alignmentKey),
     b.slice(start, bEnd).map(alignmentKey),
     MAX_ALIGNMENT_EDITS,
@@ -298,9 +332,7 @@ function describeLines(a: readonly string[], b: readonly string[]): FormattingCh
   return mergeAdjacent(changes);
 }
 
-// ---------------------------------------------------------------------------
-// Unpaired runs: inserted/removed blank lines and content blocks
-// ---------------------------------------------------------------------------
+// --- Unpaired runs: inserted/removed blank lines and content blocks -----------
 
 function describeRun(
   a: readonly string[],
@@ -494,9 +526,7 @@ function blankLinesRemoved(a: readonly string[], removed: readonly number[]): Fo
   };
 }
 
-// ---------------------------------------------------------------------------
-// Paired lines: same line, formatted differently
-// ---------------------------------------------------------------------------
+// --- Paired lines: same line, formatted differently ---------------------------
 
 /** Order in which fixes are listed; the first one also names the change's kind. */
 const FIX_PRIORITY: readonly ChangeKind[] = [
@@ -729,9 +759,7 @@ function mergeAdjacent(changes: readonly FormattingChange[]): FormattingChange[]
   return merged;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// --- Helpers ------------------------------------------------------------------
 
 /** What a reader would call this line: "heading", "list item", "table row", … */
 export function describeBlock(line: string): string {

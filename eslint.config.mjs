@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 // Type-aware linting for src/ and tests/ (the shared core and plugin surface also
@@ -43,6 +44,16 @@ export default defineConfig(
     files: ["src/cli/**/*.ts", "tests/**/*.ts"],
     extends: tseslint.configs.recommendedTypeChecked,
     languageOptions: typedLanguageOptions,
+  },
+  // Destructuring a property away (`const { parser: _parser, ...rest } = options`) is intentional.
+  {
+    files: ["src/**/*.ts", "tests/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { ignoreRestSiblings: true, argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
   },
   // Tests use `any` freely against the Obsidian mock.
   {
