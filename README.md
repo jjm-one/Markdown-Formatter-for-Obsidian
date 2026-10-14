@@ -3,7 +3,7 @@
 [![CI](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/actions/workflows/ci.yml/badge.svg)](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/actions/workflows/codeql.yml/badge.svg)](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jjm-one/Markdown-Formatter-for-Obsidian/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jjm-one/Markdown-Formatter-for-Obsidian)
-[![Latest release](https://img.shields.io/github/v/release/jjm-one/Markdown-Formatter-for-Obsidian?include_prereleases&label=release)](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/jjm-one/Markdown-Formatter-for-Obsidian?label=release)](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/jjm-one/Markdown-Formatter-for-Obsidian/total?label=downloads)](https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases)
 [![Obsidian 1.13.7+](https://img.shields.io/badge/Obsidian-1.13.7%2B-7c3aed)](https://obsidian.md)
 [![Code style: Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://prettier.io)
