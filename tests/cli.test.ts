@@ -350,6 +350,39 @@ describe("renderResult", () => {
     expect(out).toContain("… Further differences omitted");
   });
 
+  it("prints described changes with exact lines before the summary with --show-changes", () => {
+    const withChanges: CliResult = {
+      ...base,
+      entries: [
+        {
+          file: "a.md",
+          status: "needs-formatting",
+          diagnostics: [],
+          changes: [
+            {
+              anchor: "at",
+              line: 2,
+              endLine: 2,
+              kind: "list-marker",
+              message: 'Change the list marker "*" to "-".',
+              before: ["* item"],
+              after: ["- item"],
+            },
+          ],
+        },
+      ],
+    };
+    const { out } = capture(() => renderResult(withChanges, "check", "normal", false, true));
+    expect(out).toContain("a.md — 1 change\n");
+    expect(out).toContain(
+      '  line 2: Change the list marker "*" to "-".\n      - * item\n      + - item',
+    );
+    expect(out.indexOf("line 2:")).toBeLessThan(out.indexOf("CHANGES REQUIRED"));
+    expect(
+      capture(() => renderResult(withChanges, "check", "quiet", false, true)).out,
+    ).not.toContain("line 2:");
+  });
+
   it("reports failures on stderr and marks the run FAILED", () => {
     const failing: CliResult = {
       ...base,

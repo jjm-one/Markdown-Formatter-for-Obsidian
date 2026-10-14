@@ -51,7 +51,7 @@ The persisted settings, the project configuration, and the ignore file are reloa
 
 The CLI does not follow directory symlinks and excludes `.git`, `.obsidian`, `.trash`, and `node_modules` by default.
 
-**Change reporting** (`--show-changes`, `--report-file`) is a separate concern layered on top of the same before/after text: `diff.ts` computes a line-level edit script (Myers' algorithm), `changes.ts` classifies each hunk into a human-readable change (trailing whitespace, indentation, inserted/removed lines, …), and `report.ts` renders that list as plain text or as one of two CI-native formats — GitLab Code Quality JSON or GitHub-compatible SARIF.
+**Change reporting** (`--show-changes`, `--report-file`) is a separate concern layered on top of the same before/after text: `diff.ts` computes a line-level edit script (Myers' algorithm), `changes.ts` aligns lines on a formatting-insensitive key (so `* item` pairs with `- item`) and describes every difference as a change with a kind, a human-readable message, and the exact before/after lines (list markers, headings, emphasis, tables, blank lines, whitespace, end of file, line endings, …), and `report.ts` renders that list for the console, as text or JSON, or as one of two CI-native formats — GitLab Code Quality JSON or GitHub-compatible SARIF.
 
 ## Boundaries
 

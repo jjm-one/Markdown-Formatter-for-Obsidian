@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
-/** Myers shortest-edit-script line diff, used to build the `--show-changes` / report data. */
+/** Myers shortest-edit-script line diff, used to align lines for `--show-changes` / report data. */
 
 export type DiffOpType = "equal" | "delete" | "insert";
 
@@ -21,6 +21,18 @@ export interface DiffHunk {
  * texts are close, which is the common case for a formatter's own output.
  */
 export function diffLines(a: readonly string[], b: readonly string[]): DiffOpType[] {
+  return diffLinesBounded(a, b, Number.POSITIVE_INFINITY) ?? [];
+}
+
+/**
+ * {@link diffLines}, but gives up and returns `undefined` once the edit script
+ * would exceed `maxEdits` — the trace is O(D·(N+M)) memory, so callers cap D.
+ */
+export function diffLinesBounded(
+  a: readonly string[],
+  b: readonly string[],
+  maxEdits: number,
+): DiffOpType[] | undefined {
   const n = a.length;
   const m = b.length;
   const max = n + m;
@@ -31,6 +43,7 @@ export function diffLines(a: readonly string[], b: readonly string[]): DiffOpTyp
   const trace: number[][] = [];
 
   depthLoop: for (let d = 0; d <= max; d += 1) {
+    if (d > maxEdits) return undefined;
     trace.push(v);
     v = v.slice();
     for (let k = -d; k <= d; k += 2) {

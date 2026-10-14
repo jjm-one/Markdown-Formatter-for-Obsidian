@@ -53,7 +53,7 @@ The regression fixture at `tests/fixtures/obsidian/all-syntax.txt` intentionally
 
 These tests execute the same `formatMarkdown()` core called by the Obsidian plugin.
 
-`tests/diff.test.ts`, `tests/changes.test.ts`, and `tests/report.test.ts` cover the `--show-changes`/`--report-file` change-reporting pipeline: the line-diff algorithm reconstructs its input exactly (round-trip property tests), diff hunks classify into the right change kind and message, and each report format (`text`, `json`, `gitlab`, `sarif`) renders correctly, including read/format/write failures.
+`tests/diff.test.ts`, `tests/changes.test.ts`, and `tests/report.test.ts` cover the `--show-changes`/`--report-file` change-reporting pipeline: the line-diff algorithm reconstructs its input exactly (round-trip property tests), each formatting difference gets the right change kind and message, applying every reported change to the original reproduces the formatter output exactly, and each report format (`text`, `json`, `gitlab`, `sarif`) renders correctly, including read/format/write failures.
 
 ### Mocked Obsidian integration tests
 

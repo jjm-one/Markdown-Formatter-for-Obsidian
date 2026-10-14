@@ -6,7 +6,7 @@
 import { promises as fs } from "node:fs";
 import process from "node:process";
 import { cliExitCode, errorMessage, parseCliArgs, renderResult, runStandalone } from "./cli-lib";
-import { printChanges, renderReport, REPORT_FORMATS } from "./report";
+import { renderReport, REPORT_FORMATS } from "./report";
 
 /** Injected by esbuild at build time from `package.json`. */
 declare const __PACKAGE_VERSION__: string;
@@ -36,9 +36,10 @@ Options:
   --show-errors, --errors  In check mode, show line-level differences
   --max-errors <n>         Maximum differences shown per file (1-1000; default: 20)
   --show-changes, --changes
-                           Show a descriptive list of required changes
-                           (e.g. "line 12: Remove trailing whitespace.")
-  --report-file <path>     Write a change report to this file
+                           List every required change: a description
+                           (e.g. "line 12: Change the list marker "*" to "-".")
+                           plus the exact current (-) and formatted (+) lines
+  --report-file <path>     Write a detailed change report to this file
   --report-format <fmt>    Report format: ${REPORT_FORMATS.join(" | ")} (default: text)
                            gitlab = Code Quality report; sarif = GitHub code scanning
   -q, --quiet              Only print final status and failures
@@ -113,8 +114,7 @@ async function main(): Promise<void> {
       );
     }
     const result = await runStandalone(options);
-    renderResult(result, options.mode, options.verbosity, options.showErrors);
-    if (options.showChanges) printChanges(result, options.verbosity);
+    renderResult(result, options.mode, options.verbosity, options.showErrors, options.showChanges);
 
     let exitCode = cliExitCode(options.mode, result);
     if (options.reportFile !== undefined) {

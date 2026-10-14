@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it } from "vitest";
 import type { CliResult } from "../src/cli/cli-lib";
-import { renderReport, type ReportMeta } from "../src/cli/report";
+import { formatChangeDetail, renderReport, visibleLine, type ReportMeta } from "../src/cli/report";
 
 const meta: ReportMeta = {
   toolName: "markdown-formatter",
@@ -29,7 +29,9 @@ function result(overrides: Partial<CliResult> = {}): CliResult {
             line: 3,
             endLine: 3,
             kind: "trailing-whitespace",
-            message: "Remove trailing whitespace.",
+            message: "Remove the trailing whitespace (2 spaces).",
+            before: ["text  "],
+            after: ["text"],
           },
         ],
       },
@@ -43,24 +45,45 @@ function result(overrides: Partial<CliResult> = {}): CliResult {
 }
 
 describe("renderReport", () => {
-  it("renders a human-readable text report", () => {
+  it("renders a detailed human-readable text report", () => {
     const text = renderReport(result(), "check", "text", meta);
-    expect(text).toContain("note.md");
-    expect(text).toContain("line 3: Remove trailing whitespace.");
     expect(text).toContain("Summary: 2 file(s) checked; 1 need formatting, 1 clean, 0 failed.");
-    expect(text).not.toContain("clean.md");
+    expect(text).toContain("Changes: 1 in 1 file(s).");
+    expect(text).toMatch(/Trailing whitespace +1 +Lines must not end with spaces or tabs\./);
+    expect(text).toContain("note.md — 1 change");
+    expect(text).toContain("  line 3: Remove the trailing whitespace (2 spaces).");
+    expect(text).toContain("      - text··\n      + text\n");
+    expect(text).toContain("Already formatted (1):\n  clean.md");
   });
 
-  it("renders our own JSON format with a summary and only changed files", () => {
+  it("renders our own JSON format with per-kind counts, every file, and exact lines", () => {
     const json = JSON.parse(renderReport(result(), "check", "json", meta)) as {
       tool: string;
-      summary: { scanned: number };
-      files: Array<{ file: string }>;
+      summary: { scanned: number; changes: number; byKind: Record<string, number> };
+      kinds: Record<string, { name: string }>;
+      files: Array<{
+        file: string;
+        status: string;
+        changeCount: number;
+        changes: Array<{ location: string; before: string[]; after: string[] }>;
+      }>;
     };
     expect(json.tool).toBe("markdown-formatter");
-    expect(json.summary.scanned).toBe(2);
-    expect(json.files).toHaveLength(1);
-    expect(json.files[0]?.file).toBe("note.md");
+    expect(json.summary).toMatchObject({
+      scanned: 2,
+      changes: 1,
+      byKind: { "trailing-whitespace": 1 },
+    });
+    expect(json.kinds["trailing-whitespace"]?.name).toBe("Trailing whitespace");
+    expect(json.files.map((file) => [file.file, file.status, file.changeCount])).toEqual([
+      ["note.md", "needs-formatting", 1],
+      ["clean.md", "unchanged", 0],
+    ]);
+    expect(json.files[0]?.changes[0]).toMatchObject({
+      location: "line 3",
+      before: ["text  "],
+      after: ["text"],
+    });
   });
 
   it("renders a GitLab Code Quality report as a bare issue array", () => {
@@ -74,8 +97,11 @@ describe("renderReport", () => {
     expect(Array.isArray(issues)).toBe(true);
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({
-      description: "Remove trailing whitespace.",
+      type: "issue",
+      description: "Trailing whitespace: Remove the trailing whitespace (2 spaces).",
       check_name: "trailing-whitespace",
+      content: { body: "```diff\n- text··\n+ text\n```" },
+      categories: ["Style"],
       severity: "minor",
       location: { path: "note.md", lines: { begin: 3 } },
     });
@@ -95,14 +121,18 @@ describe("renderReport", () => {
               line: 3,
               endLine: 3,
               kind: "trailing-whitespace",
-              message: "Remove trailing whitespace.",
+              message: "Remove the trailing whitespace (2 spaces).",
+              before: ["a  "],
+              after: ["a"],
             },
             {
               anchor: "at",
               line: 9,
               endLine: 9,
               kind: "trailing-whitespace",
-              message: "Remove trailing whitespace.",
+              message: "Remove the trailing whitespace (2 spaces).",
+              before: ["b  "],
+              after: ["b"],
             },
           ],
         },
@@ -119,7 +149,7 @@ describe("renderReport", () => {
       version: string;
       runs: Array<{
         tool: { driver: { name: string; rules: Array<{ id: string }> } };
-        results: Array<{ ruleId: string; level: string; locations: unknown[] }>;
+        results: unknown[];
       }>;
     };
     expect(sarif.version).toBe("2.1.0");
@@ -127,7 +157,33 @@ describe("renderReport", () => {
     expect(run.tool.driver.name).toBe("markdown-formatter");
     expect(run.tool.driver.rules.map((rule) => rule.id)).toContain("trailing-whitespace");
     expect(run.results).toHaveLength(1);
-    expect(run.results[0]).toMatchObject({ ruleId: "trailing-whitespace", level: "warning" });
+    expect(run.results[0]).toMatchObject({
+      ruleId: "trailing-whitespace",
+      level: "warning",
+      message: { text: "Remove the trailing whitespace (2 spaces).\n\n- text··\n+ text" },
+      locations: [
+        {
+          physicalLocation: {
+            artifactLocation: { uri: "note.md" },
+            region: { startLine: 3, snippet: { text: "text  " } },
+          },
+        },
+      ],
+      fixes: [
+        {
+          artifactChanges: [
+            {
+              replacements: [
+                {
+                  deletedRegion: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 7 },
+                  insertedContent: { text: "text" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("includes read/format/write failures in every format", () => {
@@ -154,5 +210,44 @@ describe("renderReport", () => {
     expect(
       sarif.runs[0]?.results.some((r) => r.ruleId === "formatter-error" && r.level === "error"),
     ).toBe(true);
+  });
+});
+
+describe("change details", () => {
+  it("makes significant whitespace visible", () => {
+    expect(visibleLine("")).toBe("(blank line)");
+    expect(visibleLine("a  b\tc ")).toBe("a··b→c·");
+    expect(visibleLine("a b")).toBe("a b");
+  });
+
+  it("interleaves same-length changes and blocks others", () => {
+    expect(
+      formatChangeDetail({
+        anchor: "at",
+        line: 1,
+        endLine: 2,
+        kind: "list-marker",
+        message: 'Change the list marker "*" to "-".',
+        before: ["* a", "* b"],
+        after: ["- a", "- b"],
+      }),
+    ).toEqual([
+      '  line 1-2: Change the list marker "*" to "-".',
+      "      - * a",
+      "      + - a",
+      "      - * b",
+      "      + - b",
+    ]);
+    expect(
+      formatChangeDetail({
+        anchor: "at",
+        line: 4,
+        endLine: 5,
+        kind: "rewrap",
+        message: "Re-wrap the paragraph text: 2 lines become 1 line.",
+        before: ["a b", "c"],
+        after: ["a b c"],
+      }).slice(1),
+    ).toEqual(["      - a b", "      - c", "      + a b c"]);
   });
 });

@@ -20,7 +20,7 @@ import {
   validateProjectConfig,
 } from "../core";
 import { createFormattingChanges, type FormattingChange } from "./changes";
-import { REPORT_FORMATS, type ReportFormat } from "./report";
+import { printChanges, REPORT_FORMATS, type ReportFormat } from "./report";
 
 export { errorMessage } from "../core";
 export type { FormattingChange } from "./changes";
@@ -64,7 +64,7 @@ export interface CliFileResult {
   file: string;
   status: CliFileStatus;
   diagnostics: FormattingDiagnostic[];
-  /** Descriptive list of required changes; populated when `--show-changes` or `--report-file` is set. */
+  /** Every required change, described and with exact lines; populated when `--show-changes` or `--report-file` is set. */
   changes?: FormattingChange[];
 }
 
@@ -428,12 +428,13 @@ const VERBOSE_STATUS_MARKERS: Record<CliFileStatus, string> = {
   "needs-formatting": "CHANGE",
 };
 
-/** Print the per-file lines, `--show-errors` diagnostics, failures, and the run summary to the console. */
+/** Print the per-file lines, `--show-errors` diagnostics, `--show-changes` list, failures, and the run summary. */
 export function renderResult(
   result: CliResult,
   mode: CliMode,
   verbosity: CliVerbosity,
   showErrors: boolean,
+  showChanges = false,
 ): void {
   const verbose = verbosity === "verbose" || verbosity === "debug";
   const normal = verbosity !== "quiet";
@@ -471,6 +472,8 @@ export function renderResult(
       }
     }
   }
+
+  if (showChanges && printChanges(result, mode, verbosity)) console.log("");
 
   for (const failure of result.failures) {
     const location = failure.file ? ` ${failure.file}` : "";
