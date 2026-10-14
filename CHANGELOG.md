@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file, following
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-14
+
 ### Added
 
 - CLI: `--show-changes` prints every required change with its location, a plain-language description (e.g. `line 12: Change the list marker "*" to "-".`), and the exact current/formatted lines with visible whitespace.
@@ -17,6 +19,7 @@ All notable changes to this project will be documented in this file, following
 ### Security
 
 - Formatting does not run code from the formatted folder unless trusted. Prettier `plugins` are ignored, and a JavaScript/TypeScript Prettier config or a config that names a shared-config package stops formatting with an explanation. In 0.1.0 such configuration was executed, including by the read-only `check` mode.
+- Plugin error logs pass text from the vault's project file as arguments, not as part of the format string, so it cannot inject format specifiers.
 - CLI: the temporary file used for atomic writes is created exclusively, so an existing file or symlink with that name is never written through.
 - The GitHub Actions examples verify the downloaded CLI's build provenance (`gh attestation verify`); the GitLab and Docker examples show how to pin its SHA-256.
 

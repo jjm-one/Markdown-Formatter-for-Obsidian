@@ -50,7 +50,7 @@ Download **`markdown-formatter-cli.cjs`** from the [latest release](https://gith
 
 ```bash
 curl -fsSL -o markdown-formatter-cli.cjs \
-  https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+  https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.0/markdown-formatter-cli.cjs
 node markdown-formatter-cli.cjs --version
 ```
 
@@ -260,7 +260,7 @@ jobs:
           node-version: 24
       - run: |
           curl -fsSL -o /tmp/mdf.cjs \
-            https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+            https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.0/markdown-formatter-cli.cjs
       # Only run a CLI built by this project's release workflow (SLSA provenance).
       - run: gh attestation verify /tmp/mdf.cjs --repo jjm-one/Markdown-Formatter-for-Obsidian
         env:
@@ -277,7 +277,7 @@ markdown-format:
   image: node:24
   stage: test
   script:
-    - curl -fsSL -o /tmp/mdf.cjs https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+    - curl -fsSL -o /tmp/mdf.cjs https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.0/markdown-formatter-cli.cjs
     - node /tmp/mdf.cjs format .
     - git diff > markdown-format.patch
   artifacts:
@@ -292,7 +292,7 @@ To surface individual changes instead of just pass/fail, see [Reports](#reports)
 [`examples/docker/Dockerfile`](../examples/docker/Dockerfile) wraps the released CLI in a small Node image — it downloads the CLI from a GitHub Release at build time, so there is no checkout or build:
 
 ```bash
-docker build -t markdown-formatter --build-arg VERSION=0.1.0 examples/docker
+docker build -t markdown-formatter --build-arg VERSION=0.2.0 examples/docker
 docker run --rm -v "$PWD:/workspace" markdown-formatter check .   # or: format .
 ```
 

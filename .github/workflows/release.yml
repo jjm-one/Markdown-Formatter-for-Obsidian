@@ -97,7 +97,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           shopt -s nullglob
-          # A SemVer pre-release tag (contains "-", e.g. 0.1.0) is
+          # A SemVer pre-release tag (contains "-", e.g. 0.2.0-beta.1) is
           # published as a GitHub pre-release and is not marked "Latest".
           prerelease_flag=""
           if [[ "$RELEASE_TAG" == *-* ]]; then

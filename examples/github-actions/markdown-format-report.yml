@@ -29,7 +29,7 @@ jobs:
         run: |
           curl -fsSL \
             -o /tmp/markdown-formatter.cjs \
-            https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+            https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.2.0/markdown-formatter-cli.cjs
       # Refuse to run a CLI that was not built by this project's release workflow
       # (checks its SLSA build provenance; `gh` is preinstalled on GitHub runners).
       - name: Verify Markdown Formatter provenance

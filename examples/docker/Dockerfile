@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Runs the standalone CLI from a published GitHub Release — no checkout or build.
-#   docker build -t markdown-formatter --build-arg VERSION=0.1.0 examples/docker
+#   docker build -t markdown-formatter --build-arg VERSION=0.2.0 examples/docker
 #   docker run --rm -v "$PWD:/workspace" markdown-formatter check .   # or: format .
 # Runs as the unprivileged `node` user (uid 1000). If `format` can't write your
 # mounted files, add --user "$(id -u):$(id -g)".
@@ -11,7 +11,7 @@ FROM node:26.10.0-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8c
 
 # Release tag to download the CLI from (or "main-latest" / "develop-latest"). scripts/version-bump.mjs
 # keeps this aligned with releases; check:versions enforces it.
-ARG VERSION=0.1.0
+ARG VERSION=0.2.0
 
 LABEL org.opencontainers.image.source="https://github.com/jjm-one/Markdown-Formatter-for-Obsidian"
 LABEL org.opencontainers.image.description="Standalone Markdown Formatter CLI"
