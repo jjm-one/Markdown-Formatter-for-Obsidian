@@ -92,7 +92,8 @@ export class VaultConfig {
     const previousError = this.projectError;
     const fail = (message: string, error?: unknown) => {
       this.projectError = message;
-      console.error(`Markdown Formatter: ${message}`, ...(error === undefined ? [] : [error]));
+      // Constant format string: `message` may contain text from the config file.
+      console.error("Markdown Formatter: %s", message, ...(error === undefined ? [] : [error]));
       if (showNotice || previousError !== message)
         new Notice(`Formatting disabled until project configuration is fixed. ${message}`);
     };
@@ -233,7 +234,7 @@ export class VaultConfig {
       new Notice(`Created ${filePath}.`);
       return true;
     } catch (error) {
-      console.error(`Markdown Formatter: failed to create the ${label}`, error);
+      console.error("Markdown Formatter: failed to create the %s", label, error);
       new Notice(`Could not create the ${label}: ${errorMessage(error)}`);
       return false;
     }
