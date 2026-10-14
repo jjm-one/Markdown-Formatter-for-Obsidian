@@ -1,10 +1,10 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /** Gitignore-style ignore-pattern parsing and matching for Markdown discovery. */
 
 /** Parse an ignore file's text into a trimmed, comment- and blank-free pattern list. */
 export function parseIgnorePatterns(source: string): string[] {
-  if (typeof source !== "string") throw new Error("Ignore file contents must be text.");
   if (source.length > 1024 * 1024)
     throw new Error("Ignore file is larger than the supported 1 MiB limit.");
   if (source.includes("\0")) throw new Error("Ignore file contains an invalid NUL character.");
@@ -61,8 +61,6 @@ export function createIgnoreMatcher(patterns: readonly string[]): IgnoreMatcher 
 
   return {
     matches(relativePath: string): boolean {
-      if (typeof relativePath !== "string" || relativePath.includes("\0"))
-        throw new Error("Path to test against ignore patterns is invalid.");
       const normalizedPath = normalizeIgnorePath(relativePath);
       let ignored = false;
       for (const rule of rules) {
@@ -71,11 +69,6 @@ export function createIgnoreMatcher(patterns: readonly string[]): IgnoreMatcher 
       return ignored;
     },
   };
-}
-
-/** One-shot convenience wrapper around {@link createIgnoreMatcher}. */
-export function isPathIgnored(relativePath: string, patterns: readonly string[]): boolean {
-  return createIgnoreMatcher(patterns).matches(relativePath);
 }
 
 function normalizeIgnorePath(value: string): string {

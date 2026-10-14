@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 // `moment` is a hard dependency of the real `obsidian` package, which re-exports it.
 export { default as moment } from "moment";

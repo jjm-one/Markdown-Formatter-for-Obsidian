@@ -10,6 +10,7 @@ coverage/
 .vscode/
 
 markdown-formatter-cli.cjs
+THIRD_PARTY_LICENSES.txt
 fuzz/core.cjs
 
 # jazzer.js reproducers from a local `npm run fuzz`

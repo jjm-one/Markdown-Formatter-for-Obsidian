@@ -1,4 +1,5 @@
 #!/bin/bash -eu
+# SPDX-FileCopyrightText: 2026 jjm.one
 # SPDX-License-Identifier: LGPL-3.0-only
 # Build the fuzz target for ClusterFuzzLite / OSS-Fuzz.
 

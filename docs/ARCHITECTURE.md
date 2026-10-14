@@ -5,64 +5,63 @@
 ```text
 src/
   core/    config.ts · errors.ts · frontmatter.ts · ignore.ts · obsidian-syntax.ts · pipeline.ts · index.ts (barrel)
-  plugin/  main.ts · settings.ts · settings-tab.ts
-  cli/     cli.ts · cli-lib.ts · diff.ts · changes.ts · report.ts
+  plugin/  main.ts · vault-config.ts · settings.ts · settings-tab.ts
+  cli/     cli.ts · args.ts · run.ts · output.ts · types.ts · diff.ts · changes.ts · report.ts
 ```
 
 ## Shared formatter core
 
-`src/core/` is the compatibility boundary shared by both runtime surfaces, re-exported through `src/core/index.ts`. It owns:
+`src/core/` is the formatter both surfaces run, re-exported through `src/core/index.ts`. Neither surface implements a second formatter: a committed vault policy must produce the same Markdown in Obsidian and in CI.
 
-- project configuration types, validation, and defaults (`config.ts`);
-- safe Prettier option filtering and `.editorconfig` / Prettier configuration resolution (`config.ts`, `pipeline.ts`);
-- gitignore-style discovery filtering (`ignore.ts`);
-- Obsidian-specific syntax protection, restoration, and `prettier-ignore` preservation directives (`obsidian-syntax.ts`);
-- markdownlint conflict suppression and fixes, and the final `formatMarkdown()` pipeline (`pipeline.ts`);
-- non-destructive single-property edits to a note's YAML frontmatter (`frontmatter.ts`), used by the plugin's optional updated-date stamping.
+| Module               | Responsibility                                                                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.ts`          | `DEFAULT_SETTINGS` — the single list of settings and their defaults — and everything derived from it: the `ProjectConfig` type, validation, merging a project file over a base, and Prettier option filtering. |
+| `pipeline.ts`        | `formatMarkdown()`: resolve `.editorconfig`/Prettier options (with the trust check below), protect Obsidian syntax, run Prettier and markdownlint, then restore what was protected.                            |
+| `obsidian-syntax.ts` | Frontmatter extraction, placeholder tokens for inline Obsidian syntax and links, and `prettier-ignore` shields for preserved blocks.                                                                           |
+| `ignore.ts`          | Gitignore-style ignore patterns, compiled once into a matcher without dynamic regular expressions.                                                                                                             |
+| `frontmatter.ts`     | Frontmatter detection and single-property edits, used by the plugin's updated-date stamping.                                                                                                                   |
 
-Neither the Obsidian plugin nor the standalone CLI implements a second formatter. This is deliberate: a committed vault policy must produce the same Markdown in Obsidian and in CI.
+## Obsidian plugin
 
-## Obsidian plugin pipeline
+Every trigger — command, hotkey, ribbon, modify, open, close — ends in `formatFile()` in `main.ts`, which:
 
-For a Markdown file, `src/plugin/main.ts`:
+1. resolves the effective settings: built-in defaults, then the plugin's settings, then the vault project file;
+2. reads the note through the Vault API;
+3. runs `formatMarkdown()` with the note's absolute path, so `.editorconfig` and Prettier configuration are found on disk;
+4. refreshes an existing updated-date property, if enabled and the note changed;
+5. writes through the Vault API only when the output differs.
 
-1. resolves UI settings and optional vault project configuration;
-2. reads the note through the Obsidian Vault API;
-3. passes the contents, absolute file path, and effective settings to the shared formatter core;
-4. if enabled and the format changed the note, refreshes an existing updated-date frontmatter property (`setFrontmatterProperty`, date via `moment` + Obsidian's `dateFormat`);
-5. writes through the Vault API only when output differs.
+`vault-config.ts` owns the vault-side files: it loads, validates, writes, and creates `.markdown-formatter.json` and the ignore file, and records the errors that block formatting. `settings.ts` defines the persisted plugin settings and validates them with the project-config rules. `settings-tab.ts` uses Obsidian 1.13 declarative setting definitions, so settings are searchable.
 
-The same path is used by continuous, open, close, command/hotkey, and ribbon triggers. `src/plugin/settings.ts` owns persisted plugin-setting validation/defaults, while `src/plugin/settings-tab.ts` uses Obsidian 1.13+ declarative setting definitions so settings are searchable and lifecycle code remains isolated from presentation code.
+**Settings store.** When a valid `.markdown-formatter.json` exists and is enabled (`vaultConfig.active`), the settings tab reads the effective value (file, then plugin setting) and writes changes into the file through `updateProjectConfig()`. Otherwise it edits the plugin's own settings. `useProjectConfig`, `projectConfigPath`, and `trustPrettierConfig` always stay plugin settings. The text of the plugin's last write is remembered so its own modify event does not trigger a reload.
 
-**Settings store.** When a valid `.markdown-formatter.json` is present and enabled (`isProjectConfigActive()`), it — not `data.json` — is the store the tab binds to: `getControlValue` returns the effective value (project override, then plugin setting) and `setControlValue` merges the change back into the file via `updateProjectConfig()`, which re-validates and rewrites it. Otherwise the tab edits the plugin's own settings. A `lastWrittenProjectConfig` fingerprint suppresses the reload triggered by the plugin's own write.
+**Reloading.** The project file and the ignore file reload on vault `modify`/`create`/`delete`/`rename` events for their paths; all configuration also reloads on window focus and when the settings tab opens. A reload that changes the resolved configuration re-renders the tab. `.editorconfig` and Prettier configuration are read on every format (`cacheConfig: false`).
 
-The persisted settings, the project configuration, and the ignore file are reloaded automatically: the config and ignore file on `vault` `modify`/`create`/`delete`/`rename` for their path, and all three on window `focus` and when the settings tab is opened (covering external edits and cross-device sync). Any reload that changes the resolved config re-renders the open settings tab (`settingTab.update()`). `.editorconfig` and Prettier config are re-resolved from disk on every format (`formatMarkdown(..., { cacheConfig: false })`), so an edit to them takes effect on the next format; the CLI keeps the cache within a single run.
+## Standalone CLI
 
-## Standalone CLI pipeline
+`cli.ts` is the Node.js 24 entrypoint. `args.ts` parses arguments with `node:util` `parseArgs`, `run.ts` performs the run, `output.ts` prints it, and `types.ts` holds the shared data shapes. A run:
 
-`src/cli/cli-lib.ts` and `src/cli/cli.ts` provide a Node.js 24 command-line surface:
+1. loads `.markdown-formatter.json` (or `--config`) from the workspace;
+2. discovers `.md` files in code-point order, skipping symlinks, `.git`, `.obsidian`, `.trash`, `node_modules`, and ignored paths;
+3. formats several files at a time through `formatMarkdown()`, keeping results in scan order;
+4. compares (`check`) or writes atomically (`format`);
+5. exits `0`, `1` (changes required), or `2` (error).
 
-1. resolve a workspace root;
-2. load `.markdown-formatter.json` (or an explicit `--config`);
-3. recursively discover Markdown while applying built-in scan exclusions plus the shared ignore policy;
-4. call the shared `formatMarkdown()` function for each file;
-5. either compare only (`check`) or write changes (`format`);
-6. return deterministic CI exit codes.
-
-The CLI does not follow directory symlinks and excludes `.git`, `.obsidian`, `.trash`, and `node_modules` by default.
-
-**Change reporting** (`--show-changes`, `--report-file`) is a separate concern layered on top of the same before/after text: `diff.ts` computes a line-level edit script (Myers' algorithm), `changes.ts` aligns lines on a formatting-insensitive key (so `* item` pairs with `- item`) and describes every difference as a change with a kind, a human-readable message, and the exact before/after lines (list markers, headings, emphasis, tables, blank lines, whitespace, end of file, line endings, …), and `report.ts` renders that list for the console, as text or JSON, or as one of two CI-native formats — GitLab Code Quality JSON or GitHub-compatible SARIF.
+**Change reporting.** `diff.ts` computes a Myers line diff; `changes.ts` aligns lines on a formatting-insensitive key (so `* item` pairs with `- item`) and describes each difference with a kind, a message, and the exact before/after lines; `report.ts` renders the list as text, JSON, GitLab Code Quality, or SARIF. `--show-errors` is a bounded, compact view of the same list.
 
 ## Boundaries
 
-- **Declarative config.** The vault project configuration cannot select a Prettier parser, spoof the filepath, or load Prettier plugins; those keys are filtered before Prettier runs.
-- **Desktop-only plugin.** Prettier/EditorConfig resolution needs Obsidian's Node.js-backed desktop adapter, so the plugin is desktop-only. The CLI is likewise Node.js (desktop/server/CI).
+- **Declarative project file.** `.markdown-formatter.json` cannot select a Prettier parser, change the file path, or load Prettier plugins; those options are removed before Prettier runs.
+- **No code from the formatted folder by default.** Prettier configuration that can execute code — JavaScript/TypeScript config files, a config that names a shared-config module (detected with Prettier's own YAML parser), and `plugins` — is refused or removed unless the user opts in with the `trustPrettierConfig` plugin setting or `--trust-prettier-config`. The opt-in is never read from the vault.
+- **Desktop only.** Prettier and EditorConfig resolution need Node.js file-system access, so the plugin is desktop-only; the CLI runs on Node.js.
 
 ## Build
 
-`esbuild.config.mjs` produces two bundles:
+`esbuild.config.mjs` produces two CommonJS bundles: `main.js` (Obsidian, Electron, and Node.js built-ins external) and `markdown-formatter-cli.cjs` (everything included). Most of each bundle is Prettier's language support, which stays included because Prettier also formats code in fenced blocks (when `fencedCodeBlocks` is `prettier`) and frontmatter (when `properties` is `format`).
 
-- `main.js` — plugin runtime, with Obsidian/Electron/Node built-ins external;
-- `markdown-formatter-cli.cjs` — Node.js 24 CLI, formatter dependencies included.
+Production builds are minified and licensed explicitly:
 
-The Obsidian ZIP contains only plugin assets and license notices. The CLI ships separately on GitHub Releases and inside the npm package archive.
+- each bundle starts with a header naming the project, its copyright, and `LGPL-3.0-only`;
+- `scripts/third-party-licenses.mjs` reads esbuild's metafile, collects every bundled npm package with its license text and shipped notices into `THIRD_PARTY_LICENSES.txt`, and the build appends that text to both bundles; a package under a license outside the permissive allow-list fails the build.
+
+`scripts/package.mjs` assembles the plugin ZIP — `main.js`, `manifest.json`, `styles.css`, and the license files — for a release or a rolling development build; `scripts/verify-package.mjs` checks it. The CLI ships separately on GitHub Releases and in the npm package.

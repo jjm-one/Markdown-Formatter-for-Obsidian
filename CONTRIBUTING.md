@@ -40,7 +40,7 @@ npm run ci   # lint, types, tests + coverage, build, package, verify
 ```
 
 - When behavior changes, test the relevant formatting trigger in Obsidian desktop.
-- When configuration changes, update the JSON schema, example config, README/docs, and the compatibility checks together.
+- When a setting changes, update `DEFAULT_SETTINGS` in `src/core/config.ts`, the JSON schema, the example config, and the docs together — `tests/config.test.ts` fails if they disagree.
 - Changes that alter note contents should add a regression test — see [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Commit messages
@@ -59,3 +59,6 @@ Dependabot opens update pull requests for npm packages and GitHub Actions; revie
 ## License
 
 By contributing, you agree that your contribution is provided under the repository's GNU Lesser General Public License v3.0 (`LGPL-3.0-only`).
+
+- Start every new source file with the SPDX header used throughout the repository (`SPDX-FileCopyrightText` and `SPDX-License-Identifier: LGPL-3.0-only`); `npm run check:repository` enforces it.
+- Runtime dependencies end up in the distributed bundles. They must use a permissive license (MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, BlueOak-1.0.0, or 0BSD) — the production build fails otherwise — and their license texts are collected into `THIRD_PARTY_LICENSES.txt` automatically. Update the summary in `THIRD_PARTY_NOTICES.md` when you add or remove one.

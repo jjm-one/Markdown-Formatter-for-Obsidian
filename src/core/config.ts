@@ -1,74 +1,51 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /**
- * Project-configuration model: types, built-in defaults, validation, and the
- * merge into fully-resolved {@link EffectiveSettings}. Shared by both runtime
- * surfaces.
+ * The settings model: {@link DEFAULT_SETTINGS} defines which settings exist and
+ * their defaults; the project-config type, validation, and merging derive from it.
  */
 
 import type * as prettier from "prettier";
 
-// === Configuration model ===================================================
+// --- Settings model ---------------------------------------------------------
 
 export type MarkdownlintConfig = Record<string, boolean | string | Record<string, unknown>>;
 
-// "prettier"/"preserve" for structures and links; "format"/"preserve" for Obsidian syntax.
-type MarkdownStructureMode = "prettier" | "preserve";
-type MarkdownLinkMode = "prettier" | "preserve";
-type ObsidianSyntaxMode = "format" | "preserve";
+export const PROSE_WRAP_MODES = ["always", "never", "preserve"] as const;
+/** Modes for Markdown structures and links: normalize with Prettier, or keep the source. */
+export const FORMATTER_MODES = ["prettier", "preserve"] as const;
+export const OBSIDIAN_SYNTAX_MODES = ["format", "preserve"] as const;
 
-export type MarkdownStructureSettings = {
-  tables: MarkdownStructureMode;
-  lists: MarkdownStructureMode;
-  fencedCodeBlocks: MarkdownStructureMode;
-  blockquotes: MarkdownStructureMode;
-  horizontalRules: MarkdownStructureMode;
-};
+export type ProseWrap = (typeof PROSE_WRAP_MODES)[number];
+type FormatterMode = (typeof FORMATTER_MODES)[number];
+type ObsidianSyntaxMode = (typeof OBSIDIAN_SYNTAX_MODES)[number];
 
-export type MarkdownLinkSettings = {
-  markdownLinks: MarkdownLinkMode;
-  referenceDefinitions: MarkdownLinkMode;
-  obsidianWikilinks: MarkdownLinkMode;
-  autolinks: MarkdownLinkMode;
-};
+export type MarkdownStructureSettings = Record<
+  "tables" | "lists" | "fencedCodeBlocks" | "blockquotes" | "horizontalRules",
+  FormatterMode
+>;
 
-export type ObsidianSyntaxSettings = {
-  properties: ObsidianSyntaxMode;
-  callouts: ObsidianSyntaxMode;
-  blockIds: ObsidianSyntaxMode;
-  comments: ObsidianSyntaxMode;
-  math: ObsidianSyntaxMode;
-  tags: ObsidianSyntaxMode;
-  inlineFootnotes: ObsidianSyntaxMode;
-  highlights: ObsidianSyntaxMode;
-};
+export type MarkdownLinkSettings = Record<
+  "markdownLinks" | "referenceDefinitions" | "obsidianWikilinks" | "autolinks",
+  FormatterMode
+>;
+
+export type ObsidianSyntaxSettings = Record<
+  | "properties"
+  | "callouts"
+  | "blockIds"
+  | "comments"
+  | "math"
+  | "tags"
+  | "inlineFootnotes"
+  | "highlights",
+  ObsidianSyntaxMode
+>;
 
 export type IgnoreSettings = {
   file: string;
   patterns: string[];
-};
-
-/** The committed `.markdown-formatter.json` policy. Every field is optional. */
-export type ProjectConfig = {
-  $schema?: string;
-  formatOnModify?: boolean;
-  formatOnOpen?: boolean;
-  formatOnClose?: boolean;
-  showRibbonButton?: boolean;
-  debounceMs?: number;
-  runMarkdownlintFixes?: boolean;
-  usePrettierConfig?: boolean;
-  proseWrap?: "always" | "never" | "preserve";
-  markdownStructures?: Partial<MarkdownStructureSettings>;
-  links?: Partial<MarkdownLinkSettings>;
-  obsidianSyntax?: Partial<ObsidianSyntaxSettings>;
-  prettier?: prettier.Options;
-  markdownlint?: MarkdownlintConfig;
-  ignore?: Partial<IgnoreSettings>;
-  /** When a format changes a note, also set `updatedProperty` to the current date. */
-  stampUpdatedProperty?: boolean;
-  /** Frontmatter key refreshed by {@link stampUpdatedProperty} (only if already present). */
-  updatedProperty?: string;
 };
 
 /** Fully-resolved settings for a single formatting run, after merging every configuration layer. */
@@ -80,45 +57,103 @@ export interface EffectiveSettings {
   debounceMs: number;
   runMarkdownlintFixes: boolean;
   usePrettierConfig: boolean;
-  proseWrap: "always" | "never" | "preserve";
+  proseWrap: ProseWrap;
   markdownStructures: MarkdownStructureSettings;
   links: MarkdownLinkSettings;
   obsidianSyntax: ObsidianSyntaxSettings;
   prettier: prettier.Options;
   markdownlint: MarkdownlintConfig;
   ignore: IgnoreSettings;
+  /** When a format changes a note, also set `updatedProperty` to the current date. */
   stampUpdatedProperty: boolean;
+  /** Frontmatter key refreshed by {@link stampUpdatedProperty} (only if already present). */
   updatedProperty: string;
 }
 
-// === Defaults =============================================================
+/** Settings that group several named options; a project file may set any subset of them. */
+type GroupedSettingKey = "markdownStructures" | "links" | "obsidianSyntax" | "ignore";
+
+/** The committed `.markdown-formatter.json` policy: any subset of {@link EffectiveSettings}. */
+export type ProjectConfig = { $schema?: string } & Partial<
+  Omit<EffectiveSettings, GroupedSettingKey>
+> & { [K in GroupedSettingKey]?: Partial<EffectiveSettings[K]> };
+
+// --- Defaults ---------------------------------------------------------------
+
+// Value limits shared by the validator and the plugin's settings tab.
+export const DEBOUNCE_MIN_MS = 250;
+export const DEBOUNCE_MAX_MS = 600_000;
+/** Accepted shape of the frontmatter key stamped by `stampUpdatedProperty`. */
+export const UPDATED_PROPERTY_PATTERN = /^[A-Za-z0-9 _-]{1,64}$/;
+
+/** `$schema` written into a generated `.markdown-formatter.json`. */
+export const PROJECT_CONFIG_SCHEMA_URL =
+  "https://raw.githubusercontent.com/jjm-one/Markdown-Formatter-for-Obsidian/main/.markdown-formatter.schema.json";
 
 /**
- * Base markdownlint rules. MD013/MD033/MD041/MD045 conflict with common Obsidian
+ * Built-in defaults for every setting. Obsidian-specific syntax is preserved.
+ *
+ * markdownlint: MD013/MD033/MD041/MD045 conflict with common Obsidian
  * conventions; MD018 is off because a leading `#word` is a tag, not a broken
  * heading (set `"MD018": true` to re-enable). See docs/CONFIGURATION.md.
  */
-export const DEFAULT_MARKDOWNLINT_CONFIG: MarkdownlintConfig = {
-  default: true,
-  MD013: false,
-  MD018: false,
-  MD033: false,
-  MD041: false,
-  MD045: false,
-};
+export const DEFAULT_SETTINGS: EffectiveSettings = deepFreeze({
+  formatOnModify: false,
+  formatOnOpen: false,
+  formatOnClose: false,
+  showRibbonButton: true,
+  debounceMs: 900,
+  runMarkdownlintFixes: true,
+  usePrettierConfig: true,
+  proseWrap: "preserve",
+  markdownStructures: {
+    tables: "prettier",
+    lists: "prettier",
+    fencedCodeBlocks: "preserve",
+    blockquotes: "prettier",
+    horizontalRules: "prettier",
+  },
+  links: {
+    markdownLinks: "prettier",
+    referenceDefinitions: "preserve",
+    obsidianWikilinks: "preserve",
+    autolinks: "preserve",
+  },
+  obsidianSyntax: {
+    properties: "preserve",
+    callouts: "preserve",
+    blockIds: "preserve",
+    comments: "preserve",
+    math: "preserve",
+    tags: "preserve",
+    inlineFootnotes: "preserve",
+    highlights: "preserve",
+  },
+  prettier: {},
+  markdownlint: {
+    default: true,
+    MD013: false,
+    MD018: false,
+    MD033: false,
+    MD041: false,
+    MD045: false,
+  },
+  ignore: { file: ".markdown-formatter-ignore", patterns: [] },
+  stampUpdatedProperty: false,
+  updatedProperty: "updated",
+});
 
-// Shared value constraints. The project-config validator below enforces them on
-// the vault file; the plugin's UI-input and persisted-settings sanitizers reuse
-// the same limits so the three layers cannot drift.
-export const DEBOUNCE_MIN_MS = 250;
-export const DEBOUNCE_MAX_MS = 600_000;
-export const PROSE_WRAP_MODES = ["always", "never", "preserve"] as const;
-export const STRUCTURE_MODES = ["prettier", "preserve"] as const;
-export const LINK_MODES = ["prettier", "preserve"] as const;
-export const OBSIDIAN_SYNTAX_MODES = ["format", "preserve"] as const;
-/** Accepted shape of the frontmatter key stamped by `stampUpdatedProperty`. */
-export const UPDATED_PROPERTY_PATTERN = /^[A-Za-z0-9 _-]{1,64}$/;
-export const DEFAULT_UPDATED_PROPERTY = "updated";
+/** A complete `.markdown-formatter.json` that reproduces `settings`. */
+export function projectConfigFromSettings(settings: EffectiveSettings): ProjectConfig {
+  return { $schema: PROJECT_CONFIG_SCHEMA_URL, ...structuredClone(settings) };
+}
+
+const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof EffectiveSettings)[];
+const BOOLEAN_SETTING_KEYS = SETTING_KEYS.filter(
+  (key) => typeof DEFAULT_SETTINGS[key] === "boolean",
+);
+
+// --- Validation -------------------------------------------------------------
 
 /** True if `value` is a non-empty relative path with no absolute prefix, drive letter, `..`, or NUL. */
 export function isSafeVaultRelativePath(value: unknown): value is string {
@@ -128,100 +163,16 @@ export function isSafeVaultRelativePath(value: unknown): value is string {
   return !normalized.split("/").includes("..");
 }
 
-export const DEFAULT_MARKDOWN_STRUCTURES: MarkdownStructureSettings = {
-  tables: "prettier",
-  lists: "prettier",
-  fencedCodeBlocks: "preserve",
-  blockquotes: "prettier",
-  horizontalRules: "prettier",
-};
-
-export const DEFAULT_LINK_SETTINGS: MarkdownLinkSettings = {
-  markdownLinks: "prettier",
-  referenceDefinitions: "preserve",
-  obsidianWikilinks: "preserve",
-  autolinks: "preserve",
-};
-
-export const DEFAULT_OBSIDIAN_SYNTAX: ObsidianSyntaxSettings = {
-  properties: "preserve",
-  callouts: "preserve",
-  blockIds: "preserve",
-  comments: "preserve",
-  math: "preserve",
-  tags: "preserve",
-  inlineFootnotes: "preserve",
-  highlights: "preserve",
-};
-
-export const DEFAULT_IGNORE_SETTINGS: IgnoreSettings = {
-  file: ".markdown-formatter-ignore",
-  patterns: [],
-};
-
-/** `$schema` written into a generated `.markdown-formatter.json`. */
-export const PROJECT_CONFIG_SCHEMA_URL =
-  "https://raw.githubusercontent.com/jjm-one/Markdown-Formatter-for-Obsidian/main/.markdown-formatter.schema.json";
-
-/** Seed for a newly created `.markdown-formatter.json`. */
-export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
-  $schema: PROJECT_CONFIG_SCHEMA_URL,
-  formatOnModify: false,
-  formatOnOpen: false,
-  formatOnClose: false,
-  showRibbonButton: true,
-  debounceMs: 900,
-  runMarkdownlintFixes: true,
-  usePrettierConfig: true,
-  proseWrap: "preserve",
-  markdownStructures: { ...DEFAULT_MARKDOWN_STRUCTURES },
-  links: { ...DEFAULT_LINK_SETTINGS },
-  obsidianSyntax: { ...DEFAULT_OBSIDIAN_SYNTAX },
-  prettier: {},
-  markdownlint: { ...DEFAULT_MARKDOWNLINT_CONFIG },
-  ignore: { ...DEFAULT_IGNORE_SETTINGS },
-  stampUpdatedProperty: false,
-  updatedProperty: DEFAULT_UPDATED_PROPERTY,
-};
-
-// === Project configuration validation =====================================
-
 /** Assert that `config` is a well-formed {@link ProjectConfig}; unknown keys are rejected. */
 export function validateProjectConfig(config: unknown): asserts config is ProjectConfig {
   if (!isPlainObject(config)) throw new Error("Project configuration must be a JSON object.");
 
-  const allowedKeys = new Set([
-    "$schema",
-    "formatOnModify",
-    "formatOnOpen",
-    "formatOnClose",
-    "showRibbonButton",
-    "debounceMs",
-    "runMarkdownlintFixes",
-    "usePrettierConfig",
-    "proseWrap",
-    "markdownStructures",
-    "links",
-    "obsidianSyntax",
-    "prettier",
-    "markdownlint",
-    "ignore",
-    "stampUpdatedProperty",
-    "updatedProperty",
-  ]);
   for (const key of Object.keys(config)) {
-    if (!allowedKeys.has(key)) throw new Error(`Unknown project configuration option: ${key}.`);
+    if (key !== "$schema" && !Object.hasOwn(DEFAULT_SETTINGS, key))
+      throw new Error(`Unknown project configuration option: ${key}.`);
   }
 
-  for (const key of [
-    "formatOnModify",
-    "formatOnOpen",
-    "formatOnClose",
-    "showRibbonButton",
-    "runMarkdownlintFixes",
-    "usePrettierConfig",
-    "stampUpdatedProperty",
-  ] as const) {
+  for (const key of BOOLEAN_SETTING_KEYS) {
     if (config[key] !== undefined && typeof config[key] !== "boolean")
       throw new Error(`${key} must be true or false.`);
   }
@@ -240,24 +191,20 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
     );
   }
 
-  if (
-    config.proseWrap !== undefined &&
-    (typeof config.proseWrap !== "string" ||
-      !(PROSE_WRAP_MODES as readonly string[]).includes(config.proseWrap))
-  ) {
+  if (config.proseWrap !== undefined && !isOneOf(config.proseWrap, PROSE_WRAP_MODES)) {
     throw new Error('proseWrap must be "always", "never", or "preserve".');
   }
 
   validateModeObject(
     config.markdownStructures,
-    DEFAULT_MARKDOWN_STRUCTURES,
-    STRUCTURE_MODES,
+    DEFAULT_SETTINGS.markdownStructures,
+    FORMATTER_MODES,
     "markdownStructures",
   );
-  validateModeObject(config.links, DEFAULT_LINK_SETTINGS, LINK_MODES, "links");
+  validateModeObject(config.links, DEFAULT_SETTINGS.links, FORMATTER_MODES, "links");
   validateModeObject(
     config.obsidianSyntax,
-    DEFAULT_OBSIDIAN_SYNTAX,
+    DEFAULT_SETTINGS.obsidianSyntax,
     OBSIDIAN_SYNTAX_MODES,
     "obsidianSyntax",
   );
@@ -291,10 +238,28 @@ export function validateProjectConfig(config: unknown): asserts config is Projec
   }
 }
 
+/**
+ * Validate a single setting, addressed as `key` or `group.key` (for example
+ * `markdownStructures.tables`), with the same rules and messages as
+ * {@link validateProjectConfig}. Throws if the value is not acceptable.
+ */
+export function validateProjectSetting(path: string, value: unknown): void {
+  const dot = path.indexOf(".");
+  // Computed keys define own properties, so `__proto__` is rejected as unknown
+  // instead of touching a prototype.
+  validateProjectConfig(
+    dot === -1 ? { [path]: value } : { [path.slice(0, dot)]: { [path.slice(dot + 1)]: value } },
+  );
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value); // typed `any` by lib.es5
   return prototype === Object.prototype || prototype === null;
+}
+
+function isOneOf(value: unknown, allowed: readonly string[]): boolean {
+  return typeof value === "string" && allowed.includes(value);
 }
 
 function validateStringArray(value: unknown, label: string): asserts value is string[] {
@@ -324,48 +289,56 @@ function validateModeObject(
   if (value === undefined) return;
   if (!isPlainObject(value)) throw new Error(`${label} must be a JSON object.`);
   for (const [name, mode] of Object.entries(value)) {
-    if (!(name in defaults)) throw new Error(`Unknown ${label} option: ${name}.`);
-    if (typeof mode !== "string" || !allowed.includes(mode))
+    if (!Object.hasOwn(defaults, name)) throw new Error(`Unknown ${label} option: ${name}.`);
+    if (!isOneOf(mode, allowed))
       throw new Error(
         `${label}.${name} must be ${allowed.map((item) => `"${item}"`).join(" or ")}.`,
       );
   }
 }
 
-/** Drop `parser`, `filepath`, and `plugins` from project-supplied Prettier options. */
+// --- Merging ----------------------------------------------------------------
+
+/** Drop `parser`, `filepath`, and `plugins`, which configuration must not control. */
 export function safeProjectPrettierOptions(options: prettier.Options): prettier.Options {
-  if (!isPlainObject(options)) throw new Error("Prettier options must be a plain object.");
   const { parser: _parser, filepath: _filepath, plugins: _plugins, ...safeOptions } = options;
-  void _parser;
-  void _filepath;
-  void _plugins;
   return safeOptions;
 }
 
-/** Merge the built-in defaults with an optional {@link ProjectConfig} into {@link EffectiveSettings}. */
+/**
+ * Merge an optional {@link ProjectConfig} over `base` (the built-in defaults, or
+ * the plugin's own settings) into {@link EffectiveSettings}. Grouped settings
+ * merge key by key; the project file wins wherever it sets a value.
+ */
 export function effectiveSettingsFromProject(
   project: ProjectConfig | null = null,
-  markdownlintBase: MarkdownlintConfig = DEFAULT_MARKDOWNLINT_CONFIG,
+  base: EffectiveSettings = DEFAULT_SETTINGS,
 ): EffectiveSettings {
   if (project !== null) validateProjectConfig(project);
-  if (!isPlainObject(markdownlintBase))
-    throw new Error("Base markdownlint configuration must be a JSON object.");
+  const { $schema: _schema, ...overrides }: ProjectConfig =
+    project === null ? {} : withoutUndefined(project);
   return {
-    formatOnModify: project?.formatOnModify ?? false,
-    formatOnOpen: project?.formatOnOpen ?? false,
-    formatOnClose: project?.formatOnClose ?? false,
-    showRibbonButton: project?.showRibbonButton ?? true,
-    debounceMs: project?.debounceMs ?? 900,
-    runMarkdownlintFixes: project?.runMarkdownlintFixes ?? true,
-    usePrettierConfig: project?.usePrettierConfig ?? true,
-    proseWrap: project?.proseWrap ?? "preserve",
-    markdownStructures: { ...DEFAULT_MARKDOWN_STRUCTURES, ...(project?.markdownStructures ?? {}) },
-    links: { ...DEFAULT_LINK_SETTINGS, ...(project?.links ?? {}) },
-    obsidianSyntax: { ...DEFAULT_OBSIDIAN_SYNTAX, ...(project?.obsidianSyntax ?? {}) },
-    prettier: safeProjectPrettierOptions(project?.prettier ?? {}),
-    markdownlint: { ...markdownlintBase, ...(project?.markdownlint ?? {}) },
-    ignore: { ...DEFAULT_IGNORE_SETTINGS, ...(project?.ignore ?? {}) },
-    stampUpdatedProperty: project?.stampUpdatedProperty ?? false,
-    updatedProperty: project?.updatedProperty?.trim() || DEFAULT_UPDATED_PROPERTY,
+    ...base,
+    ...overrides,
+    markdownStructures: { ...base.markdownStructures, ...overrides.markdownStructures },
+    links: { ...base.links, ...overrides.links },
+    obsidianSyntax: { ...base.obsidianSyntax, ...overrides.obsidianSyntax },
+    prettier: safeProjectPrettierOptions({ ...base.prettier, ...overrides.prettier }),
+    markdownlint: { ...base.markdownlint, ...overrides.markdownlint },
+    ignore: { ...base.ignore, ...overrides.ignore },
+    updatedProperty: overrides.updatedProperty?.trim() || base.updatedProperty,
   };
+}
+
+/** `value` without its `undefined` properties, so they cannot override a base value when spread. */
+function withoutUndefined<T extends object>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
+}
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value === "object" && value !== null) {
+    for (const entry of Object.values(value)) deepFreeze(entry);
+    Object.freeze(value);
+  }
+  return value;
 }

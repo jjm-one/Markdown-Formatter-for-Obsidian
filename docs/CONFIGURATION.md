@@ -14,11 +14,34 @@ When this file exists (and _Use vault project configuration_ is on), it is also 
 
 ## EditorConfig and Prettier
 
-When `usePrettierConfig` is enabled, the plugin asks Prettier to resolve configuration for the current file with EditorConfig support enabled. Safe values from the vault-level `prettier` object are then applied as overrides.
+When `usePrettierConfig` is `true` (the default), each note is formatted with the `.editorconfig` and Prettier configuration that apply to it. Prettier reads `.editorconfig` and maps these keys:
 
-The plugin re-reads `.editorconfig` and any Prettier config file from disk on every format, so an edit to those files takes effect on the next format with no restart. (The standalone CLI caches the lookup for the duration of one run.)
+| `.editorconfig` key                | Prettier option | Effect on Markdown                                                                       |
+| ---------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `end_of_line` (`lf`, `crlf`, `cr`) | `endOfLine`     | Line endings of the whole note.                                                          |
+| `indent_style` (`space`, `tab`)    | `useTabs`       | Indentation of nested lists and reformatted code.                                        |
+| `indent_size` / `tab_width`        | `tabWidth`      | Width of that indentation (`indent_size` with `indent_style = space`, else `tab_width`). |
+| `max_line_length` (number, `off`)  | `printWidth`    | Wrapping width; visible only with `proseWrap: "always"`.                                 |
+| `quote_type`                       | `singleQuote`   | Only code inside fenced blocks that Prettier may format.                                 |
 
-The project file intentionally ignores `parser`, `filepath`, and `plugins`. The plugin controls parser/filepath internally, and custom Prettier plugins should only be loaded through a trusted Prettier configuration file.
+`charset`, `insert_final_newline`, and `trim_trailing_whitespace` are not used: a formatted note always ends with exactly one newline and has no trailing whitespace except a two-space hard line break.
+
+Precedence, lowest first: `.editorconfig` → Prettier config file → the `prettier` object in `.markdown-formatter.json` → `proseWrap`, which always applies. markdownlint fixes run afterwards.
+
+Both are found by searching upward from the note's folder. The `.editorconfig` search stops at a file with `root = true` or at the folder that contains `.git` or `.hg`; outside a repository, put `root = true` in the vault's `.editorconfig` so files further up the disk do not apply. The plugin re-reads both on every format; the CLI reads them once per run.
+
+### Prettier options in the project file
+
+The `prettier` object accepts Prettier options and ignores `parser`, `filepath`, and `plugins` — the formatter always uses Prettier's Markdown parser for the note being formatted.
+
+### Prettier configuration that can run code
+
+Some Prettier configuration executes code: JavaScript/TypeScript config files (`prettier.config.js`, `.prettierrc.mjs`, …), a config whose whole value names a shared-config package (`"@company/prettier-config"`), and `plugins`. Because a vault or repository may come from someone else, none of it runs by default:
+
+- `plugins` in a Prettier config file are ignored;
+- a JavaScript/TypeScript config, or one that names a shared-config package, stops formatting with an error that explains why.
+
+Declarative files — `.prettierrc`, `.prettierrc.json`, `.yaml`, `.json5`, `.toml`, and an inline `"prettier"` object in `package.json` — always work. To load code-capable configuration, turn on **Trust Prettier configuration** in the plugin settings (stored on the device, never in the vault) or pass `--trust-prettier-config` to the CLI, only for vaults and repositories you trust.
 
 ## Formatting triggers
 
@@ -99,7 +122,9 @@ Wikilinks and embeds are preserved by default because their syntax is meaningful
 }
 ```
 
-`preserve` is the recommended setting. Opting a construct into `format` means generic formatting is allowed to affect it and the plugin no longer guarantees source-level preservation for that construct.
+`preserve` is the recommended setting. Setting a construct to `format` lets generic formatting change it, without source-level preservation.
+
+A preserved Properties block keeps its content byte-for-byte; only its line endings follow the rest of the formatted note, so a note never mixes line endings.
 
 ## markdownlint
 

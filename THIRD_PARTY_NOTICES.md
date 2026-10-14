@@ -1,31 +1,20 @@
 # Third-party notices
 
-The production bundle includes third-party software. Their licenses remain in effect for their respective components.
+Markdown Formatter for Obsidian is licensed under the GNU Lesser General Public License v3.0 only (`LGPL-3.0-only`); see [LICENSE](LICENSE) and [LICENSES/](LICENSES/). Its distributed files — `main.js` (the Obsidian plugin) and `markdown-formatter-cli.cjs` (the standalone CLI) — also contain third-party software, which remains under its own licenses.
 
-## Prettier
+## Bundled software
 
-Copyright © James Long and contributors
+- **[Prettier](https://github.com/prettier/prettier)** — MIT License, Copyright © James Long and contributors. Prettier itself contains code from further projects under the MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, and BlueOak-1.0.0 licenses, listed in the notices Prettier publishes with each release.
+- **[markdownlint](https://github.com/DavidAnson/markdownlint)** — MIT License, Copyright © David Anson — together with the packages it depends on, including `micromark` and its extensions, `character-entities`, and `decode-named-character-reference` (MIT, Copyright © Titus Wormer), and `string-width`, `strip-ansi`, `ansi-regex`, and `get-east-asian-width` (MIT, Copyright © Sindre Sorhus).
 
-Licensed under the MIT License:
+## Full license texts
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+The production build generates **`THIRD_PARTY_LICENSES.txt`** from the exact set of packages compiled into the bundles: the name, version, and license of each package, its license text verbatim, and the notices it ships (including Prettier's complete third-party notices). That text is
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+- embedded at the end of `main.js` and `markdown-formatter-cli.cjs`, so every copy of a bundle carries it;
+- included in the plugin ZIP and the npm package; and
+- attached to every GitHub Release.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The build fails if a bundled package is under a license other than MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, BlueOak-1.0.0, or 0BSD, so no incompatible license can enter a release unnoticed.
 
-Source: https://github.com/prettier/prettier
-
-## markdownlint
-
-Copyright (c) David Anson
-
-Licensed under the MIT License:
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Source: https://github.com/DavidAnson/markdownlint
+Development tools (TypeScript, esbuild, ESLint, Vitest, jazzer.js, and others) are used only to build and test the project and are not distributed.

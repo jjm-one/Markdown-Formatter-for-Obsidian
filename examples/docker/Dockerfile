@@ -17,6 +17,8 @@ LABEL org.opencontainers.image.source="https://github.com/jjm-one/Markdown-Forma
 LABEL org.opencontainers.image.description="Standalone Markdown Formatter CLI"
 LABEL org.opencontainers.image.licenses="LGPL-3.0-only"
 
+# To pin the exact file, add --checksum=sha256:<hash> (verify the release asset first with
+# `gh attestation verify markdown-formatter-cli.cjs --repo jjm-one/Markdown-Formatter-for-Obsidian`).
 ADD --chmod=644 \
   "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/${VERSION}/markdown-formatter-cli.cjs" \
   /opt/markdown-formatter/cli.cjs

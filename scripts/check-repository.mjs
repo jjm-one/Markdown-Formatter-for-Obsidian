@@ -1,14 +1,15 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 // Verify release-critical repository metadata: license, URLs, manifest rules, SHA-pinned actions, packaging.
 import fs from "node:fs";
 
 const REPOSITORY_URL = "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian";
 const EXPECTED_LICENSE = "LGPL-3.0-only";
-// Files the packaging script must copy into the installable plugin ZIP. The
-// standalone CLI is a separate GitHub Release asset (checked via release.yml).
-const PLUGIN_ZIP_FILES = ["main.js", "manifest.json", "styles.css"];
+// The installable plugin ZIP holds PLUGIN_FILES (scripts/lib.mjs, enforced by
+// scripts/verify-package.mjs); the standalone CLI is a separate GitHub Release asset.
 
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
+const readText = (file) => fs.readFileSync(file, "utf8");
 const pkg = readJson("package.json");
 const manifest = readJson("manifest.json");
 
@@ -48,27 +49,67 @@ assert(
   manifest.isDesktopOnly === true,
   "This implementation uses Node.js APIs and must remain desktop-only.",
 );
+// Version pins must agree with each other; the pins themselves are bumped freely.
+const [appMajor, appMinor] = (manifest.minAppVersion ?? "").split(".").map(Number);
 assert(
-  manifest.minAppVersion === "1.13.7",
-  "manifest.json minAppVersion must match the initial supported Obsidian release line.",
+  appMajor > 1 || (appMajor === 1 && appMinor >= 13),
+  "manifest.json minAppVersion must be 1.13 or newer (the settings tab uses Obsidian 1.13 declarative settings).",
+);
+const minNodeMajor = /^>=(\d+)\.\d+\.\d+$/.exec(pkg.engines?.node ?? "")?.[1];
+assert(minNodeMajor !== undefined, "package.json engines.node must have the form '>=X.Y.Z'.");
+assert(
+  /^npm@\d+\.\d+\.\d+$/.test(pkg.packageManager ?? ""),
+  "package.json packageManager must pin an exact npm version (npm@X.Y.Z).",
+);
+const nvmrc = readText(".nvmrc").trim();
+assert(
+  /^\d+\.\d+\.\d+$/.test(nvmrc) && readText(".node-version").trim() === nvmrc,
+  ".nvmrc and .node-version must pin the same exact Node.js version.",
 );
 assert(
-  pkg.engines?.node === ">=24.0.0",
-  "package.json must require Node.js 24 or newer for the CLI.",
+  Number(nvmrc.split(".")[0]) >= Number(minNodeMajor),
+  `.nvmrc (${nvmrc}) must satisfy package.json engines.node (${pkg.engines?.node}).`,
 );
 assert(
-  pkg.packageManager === "npm@11.19.0",
-  "package.json must declare npm 11.19.0 to match Node.js 24.21.0 LTS.",
-);
-const nvmrc = fs.readFileSync(".nvmrc", "utf8").trim();
-assert(
-  nvmrc === "24.21.0" && fs.readFileSync(".node-version", "utf8").trim() === nvmrc,
-  ".nvmrc and .node-version must both pin 24.21.0.",
+  readText("src/cli/cli.ts").includes(`nodeMajor < ${minNodeMajor}`) &&
+    readText("esbuild.config.mjs").includes(`target: "node${minNodeMajor}"`),
+  `The CLI runtime check and esbuild target must match engines.node (Node.js ${minNodeMajor}).`,
 );
 assert(
-  fs.readFileSync("LICENSE", "utf8").includes("GNU LESSER GENERAL PUBLIC LICENSE"),
-  "LICENSE must contain the LGPL text.",
+  readText("LICENSE").includes("GNU LESSER GENERAL PUBLIC LICENSE") &&
+    readText("LICENSE") === readText("LICENSES/LGPL-3.0-only.txt"),
+  "LICENSE must be the LGPL-3.0 text, identical to LICENSES/LGPL-3.0-only.txt.",
 );
+assert(
+  readText("LICENSES/GPL-3.0-only.txt").includes("GNU GENERAL PUBLIC LICENSE"),
+  "LICENSES/GPL-3.0-only.txt must contain the GPL-3.0 text the LGPL incorporates.",
+);
+
+// Every hand-written source file names its copyright holder and license (SPDX).
+const SPDX_HEADER =
+  /^(?:#!.*\n)?(?:\/\/|#|\/\*) SPDX-FileCopyrightText: \d{4} .+\n(?:\/\/|#|\/\*) SPDX-License-Identifier: LGPL-3\.0-only\b/;
+const sourceFiles = (dir, pattern) =>
+  fs
+    .readdirSync(dir, { recursive: true })
+    .map((file) => `${dir}/${file}`)
+    .filter((file) => pattern.test(file));
+for (const file of [
+  ...sourceFiles("src", /\.ts$/),
+  ...sourceFiles("tests", /\.ts$/),
+  ...sourceFiles("scripts", /\.mjs$/),
+  "fuzz/format.fuzz.cjs",
+  "esbuild.config.mjs",
+  "eslint.config.mjs",
+  "vitest.config.ts",
+  "styles.css",
+  ".clusterfuzzlite/build.sh",
+  ".clusterfuzzlite/Dockerfile",
+]) {
+  assert(
+    SPDX_HEADER.test(readText(file)),
+    `${file} must start with SPDX copyright and license lines.`,
+  );
+}
 
 for (const [scriptName, command] of Object.entries(scripts)) {
   for (const match of command.matchAll(npmRunPattern)) {
@@ -87,6 +128,9 @@ assert(
   pkg.files?.includes("markdown-formatter-cli.cjs"),
   "npm package files must include the standalone CLI bundle.",
 );
+for (const file of ["LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.txt"]) {
+  assert(pkg.files?.includes(file), `npm package files must include ${file}.`);
+}
 assert(
   pkg.files?.includes(".markdown-formatter-ignore.example"),
   "npm package files must include the ignore-file example.",
@@ -148,14 +192,18 @@ assert(
   "Rolling development build must retain commit-specific Actions artifacts (SHA-pinned upload-artifact v7).",
 );
 
-const releaseScript = fs.readFileSync("scripts/package-release.mjs", "utf8");
-for (const file of PLUGIN_ZIP_FILES) {
-  assert(releaseScript.includes(file), `Plugin ZIP packaging must include ${file}.`);
-}
 assert(
   releaseWorkflow.includes("markdown-formatter-cli.cjs"),
   "Release workflow must attach the standalone CLI as a release asset.",
 );
+for (const [name, contents] of [
+  ["release.yml", releaseWorkflow],
+  ["main-build.yml", mainBuildWorkflow],
+]) {
+  for (const file of ["THIRD_PARTY_LICENSES.txt", "GPL-3.0-only.txt", "LICENSE"]) {
+    assert(contents.includes(file), `${name} must publish ${file} with the bundles.`);
+  }
+}
 for (const [name, contents] of [
   ["release.yml", releaseWorkflow],
   ["main-build.yml", mainBuildWorkflow],

@@ -1,8 +1,28 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
-/** Minimal, non-destructive edits to a note's leading YAML frontmatter block. */
+/** Detection of, and minimal non-destructive edits to, a note's leading YAML frontmatter block. */
 
 const FRONTMATTER = /^(---\r?\n)([\s\S]*?)(\r?\n---[ \t]*(?:\r?\n|$))/;
+
+/** A note's leading frontmatter block, split into its delimiters and body. */
+export interface FrontmatterBlock {
+  /** The opening `---` line, including its line ending. */
+  open: string;
+  body: string;
+  /** The closing `---` line, including its line ending (if any). */
+  close: string;
+  /** Length of the whole block in the source text. */
+  length: number;
+}
+
+/** The frontmatter block at the very start of `content`, or `null` if there is none. */
+export function matchFrontmatter(content: string): FrontmatterBlock | null {
+  const match = FRONTMATTER.exec(content);
+  if (!match) return null;
+  const [block, open = "", body = "", close = ""] = match;
+  return { open, body, close, length: block.length };
+}
 
 /**
  * Render `value` as a YAML scalar. Plain letters/digits/spaces and date
@@ -29,15 +49,14 @@ function unquote(text: string): string {
  * matches. Only the matched line changes; key quoting and spacing are kept.
  */
 export function setFrontmatterProperty(content: string, key: string, value: string): string | null {
-  if (typeof content !== "string" || typeof key !== "string" || key.length === 0) return null;
-  const block = FRONTMATTER.exec(content);
-  if (!block || block.index !== 0) return null;
+  if (key.length === 0) return null;
+  const block = matchFrontmatter(content);
+  if (!block) return null;
 
-  const [, open, body, close] = block;
   const rendered = `${key}: ${toYamlScalar(value)}`;
 
   // Rewrite the first top-level (unindented) line whose key matches.
-  const lines = (body ?? "").split("\n");
+  const lines = block.body.split("\n");
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i] ?? "";
     if (raw.length === 0 || raw[0] === " " || raw[0] === "\t") continue; // nested / blank
@@ -49,7 +68,7 @@ export function setFrontmatterProperty(content: string, key: string, value: stri
 
     if (text === rendered) return null;
     lines[i] = carriageReturn ? `${rendered}\r` : rendered;
-    return `${open}${lines.join("\n")}${close}${content.slice(block[0].length)}`;
+    return `${block.open}${lines.join("\n")}${block.close}${content.slice(block.length)}`;
   }
   return null;
 }

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 // Verify package.json, manifest.json, versions.json, the example Dockerfile, and
 // any release tag agree on the version.

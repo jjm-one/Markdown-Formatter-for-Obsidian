@@ -1,20 +1,27 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { effectiveSettingsFromProject, resolvePrettierOptions } from "../src/core";
-import type { CliResult } from "../src/cli/cli-lib";
+import { parseCliArgs } from "../src/cli/args";
+import { createFormattingChanges, createFormattingDiagnostics } from "../src/cli/changes";
+import { renderResult } from "../src/cli/output";
 import {
   cliExitCode,
   findMarkdownFiles,
   loadStandaloneProjectConfig,
-  parseCliArgs,
-  renderResult,
   runStandalone,
-  createFormattingDiagnostics,
   writeFileAtomically,
-} from "../src/cli/cli-lib";
+} from "../src/cli/run";
+import type { CliResult } from "../src/cli/types";
+
+/** Relative paths of the files a run found needing (or receiving) formatting. */
+const changedFiles = (result: CliResult) =>
+  result.entries
+    .filter((entry) => entry.status === "needs-formatting" || entry.status === "formatted")
+    .map((entry) => entry.file);
 
 const tempDirs: string[] = [];
 
@@ -71,14 +78,59 @@ describe("standalone CLI", () => {
   it("rejects unknown modes and options", () => {
     expect(() => parseCliArgs(["lint"])).toThrow("check");
     expect(() => parseCliArgs(["check", "--wat"])).toThrow("Unknown option");
-    expect(() => parseCliArgs(["check", "--config"])).toThrow("--config requires a valid value");
+    expect(() => parseCliArgs(["check", "--config"])).toThrow("--config");
+    expect(() => parseCliArgs(["check", "--config", "--quiet"])).toThrow("--config");
+    expect(() => parseCliArgs(["check", "--config="])).toThrow("non-empty value");
+    expect(() => parseCliArgs(["check", "a", "b"])).toThrow("Unexpected argument: b");
+  });
+
+  it("accepts --option=value, repeated excludes, and lets the last verbosity flag win", () => {
+    const parsed = parseCliArgs(
+      [
+        "format",
+        "--config=cfg.json",
+        "--exclude=a/**",
+        "--exclude",
+        "b/**",
+        "-q",
+        "--verbosity=debug",
+        "--verbose",
+        "--trust-prettier-config",
+      ],
+      "/repo",
+    );
+    expect(parsed.mode).toBe("format");
+    expect(parsed.root).toBe(path.resolve("/repo"));
+    expect(parsed.configPath).toBe("cfg.json");
+    expect(parsed.extraExcludes).toEqual(["a/**", "b/**"]);
+    expect(parsed.verbosity).toBe("verbose");
+    expect(parsed.trustPrettierConfig).toBe(true);
+    expect(parseCliArgs(["check", "--debug", "-q"]).verbosity).toBe("quiet");
+    expect(parseCliArgs(["check"]).trustPrettierConfig).toBe(false);
+  });
+
+  it("validates report options", () => {
+    const parsed = parseCliArgs(
+      ["check", "--report-file", "r.sarif", "--report-format", "sarif"],
+      "/repo",
+    );
+    expect(parsed.reportFile).toBe(path.resolve("/repo/r.sarif"));
+    expect(parsed.reportFormat).toBe("sarif");
+    expect(() => parseCliArgs(["check", "--report-format", "gitlab"])).toThrow(
+      "--report-format requires --report-file",
+    );
+    expect(() => parseCliArgs(["check", "--report-file", "r", "--report-format", "xml"])).toThrow(
+      "Invalid --report-format",
+    );
   });
 
   it("uses safe defaults when the project config is absent", async () => {
     const root = await tempVault();
     const config = await loadStandaloneProjectConfig(root);
-    expect(config.obsidianSyntax?.properties).toBe("preserve");
-    expect(config.markdownStructures?.fencedCodeBlocks).toBe("preserve");
+    expect(config).toEqual({});
+    const effective = effectiveSettingsFromProject(config);
+    expect(effective.obsidianSyntax.properties).toBe("preserve");
+    expect(effective.markdownStructures.fencedCodeBlocks).toBe("preserve");
   });
 
   it("fails on an explicitly requested missing config", async () => {
@@ -114,7 +166,7 @@ describe("standalone CLI", () => {
 
     const result = await runStandalone(options("check", root));
     expect(result.changed).toBe(1);
-    expect(result.files).toEqual(["note.md"]);
+    expect(changedFiles(result)).toEqual(["note.md"]);
     expect(cliExitCode("check", result)).toBe(1);
     expect(await fs.readFile(file, "utf8")).toBe(original);
   });
@@ -205,7 +257,7 @@ describe("standalone CLI", () => {
 
     const result = await runStandalone(options("check", root));
     expect(result.scanned).toBe(2);
-    expect(result.files.sort()).toEqual(["important.generated.md", "keep.md"]);
+    expect(changedFiles(result)).toEqual(["important.generated.md", "keep.md"]);
   });
 
   it("supports an explicit CLI ignore file", async () => {
@@ -216,7 +268,7 @@ describe("standalone CLI", () => {
 
     const result = await runStandalone(options("check", root, { ignoreFilePath: "ci.ignore" }));
     expect(result.scanned).toBe(1);
-    expect(result.files).toEqual(["keep.md"]);
+    expect(changedFiles(result)).toEqual(["keep.md"]);
   });
 
   it("parses verbosity and detailed diagnostic options", () => {
@@ -228,9 +280,40 @@ describe("standalone CLI", () => {
     expect(() => parseCliArgs(["check", "--max-errors", "0"])).toThrow("--max-errors");
   });
 
-  it("creates useful line-level formatting diagnostics", () => {
-    const diagnostics = createFormattingDiagnostics("#Bad\ntext\n", "# Bad\ntext\n", 10);
-    expect(diagnostics[0]).toMatchObject({ line: 1, actual: "#Bad", expected: "# Bad" });
+  it("creates compact diagnostics from the described changes", () => {
+    const diagnostics = createFormattingDiagnostics(
+      createFormattingChanges("#Bad\ntext\n", "# Bad\ntext\n"),
+      10,
+    );
+    expect(diagnostics).toEqual([
+      {
+        location: "line 1",
+        message: "Add a space after the heading marker.",
+        actual: "#Bad",
+        expected: "# Bad",
+      },
+    ]);
+  });
+
+  it("aligns diagnostics on the changed lines instead of comparing line N to line N", () => {
+    const original = "# Title\nintro\n* a\n* b\n";
+    const formatted = "# Title\n\nintro\n\n- a\n- b\n";
+    const diagnostics = createFormattingDiagnostics(createFormattingChanges(original, formatted));
+    // "intro" is not reported as changed just because a blank line was inserted above it.
+    expect(diagnostics.some((diagnostic) => diagnostic.actual === "intro")).toBe(false);
+  });
+
+  it("notes omitted diagnostics only when there are more changes than the limit", () => {
+    const changes = createFormattingChanges("a  \nb\nc  \nd\ne  \n", "a\nb\nc\nd\ne\n");
+    expect(changes).toHaveLength(3);
+    expect(createFormattingDiagnostics(changes, 3).map((d) => d.location)).toEqual([
+      "line 1",
+      "line 3",
+      "line 5",
+    ]);
+    const limited = createFormattingDiagnostics(changes, 2);
+    expect(limited).toHaveLength(3);
+    expect(limited[2]).toEqual({ location: "", message: "1 further change omitted (limit 2)." });
   });
 
   it("rejects config and ignore paths that escape the workspace", async () => {
@@ -238,6 +321,7 @@ describe("standalone CLI", () => {
     await expect(loadStandaloneProjectConfig(root, "../outside.json")).rejects.toThrow(
       "inside the workspace",
     );
+    await expect(loadStandaloneProjectConfig(root, "..")).rejects.toThrow("inside the workspace");
     await expect(
       runStandalone(options("check", root, { ignoreFilePath: "../outside.ignore" })),
     ).rejects.toThrow("inside the workspace");
@@ -266,6 +350,32 @@ describe("standalone CLI", () => {
     expect(cliExitCode("check", result)).toBe(2);
   });
 
+  it("accepts workspace files whose names merely start with two dots", async () => {
+    const root = await tempVault();
+    await fs.writeFile(path.join(root, "..ignore"), "skip.md\n");
+    await fs.writeFile(path.join(root, "skip.md"), NEEDS_FORMATTING);
+    const result = await runStandalone(options("check", root, { ignoreFilePath: "..ignore" }));
+    expect(result.scanned).toBe(0);
+  });
+
+  it("reports files in code-point order regardless of locale and concurrency", async () => {
+    const root = await tempVault();
+    const names = [
+      "b.md",
+      "C.md",
+      "a.md",
+      "_x.md",
+      "Z.md",
+      "ä.md",
+      ...Array.from({ length: 20 }, (_, i) => `n${i}.md`),
+    ];
+    for (const name of names) await fs.writeFile(path.join(root, name), NEEDS_FORMATTING);
+    const result = await runStandalone(options("check", root));
+    const files = result.entries.map((entry) => entry.file);
+    expect(files).toEqual([...files].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+    expect(files).toHaveLength(names.length);
+  });
+
   it("wraps a write failure and cleans up the temp file", async () => {
     const root = await tempVault();
     const missing = path.join(root, "no-such-dir", "note.md");
@@ -281,7 +391,6 @@ describe("renderResult", () => {
     formatted: 0,
     unchanged: 1,
     failed: 0,
-    files: ["a.md"],
     entries: [
       { file: "a.md", status: "needs-formatting", diagnostics: [] },
       { file: "b.md", status: "unchanged", diagnostics: [] },
@@ -338,8 +447,8 @@ describe("renderResult", () => {
           file: "a.md",
           status: "needs-formatting",
           diagnostics: [
-            { line: 3, message: "Line differs.", actual: "x", expected: "y" },
-            { line: 0, message: "Further differences omitted after 1 diagnostic(s)." },
+            { location: "line 3", message: "Line differs.", actual: "x", expected: "y" },
+            { location: "", message: "1 further change omitted (limit 1)." },
           ],
         },
       ],
@@ -347,7 +456,7 @@ describe("renderResult", () => {
     const { out } = capture(() => renderResult(withDiag, "check", "normal", true));
     expect(out).toContain("line 3: Line differs.");
     expect(out).toContain('actual:   "x"');
-    expect(out).toContain("… Further differences omitted");
+    expect(out).toContain("… 1 further change omitted");
   });
 
   it("prints described changes with exact lines before the summary with --show-changes", () => {

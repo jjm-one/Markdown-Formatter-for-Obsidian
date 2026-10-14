@@ -6,16 +6,18 @@ Markdown Formatter uses multiple test layers because formatting bugs can either 
 
 ### Formatter and configuration unit tests
 
-`tests/config.test.ts`, `tests/preservation.test.ts`, `tests/formatting.test.ts`, `tests/ignore.test.ts`, `tests/frontmatter.test.ts`, and `tests/errors.test.ts` verify:
+`tests/config.test.ts`, `tests/preservation.test.ts`, `tests/formatting.test.ts`, `tests/prettier-trust.test.ts`, `tests/ignore.test.ts`, `tests/frontmatter.test.ts`, and `tests/errors.test.ts` verify:
 
 - persisted settings validation and safe defaulting;
 - vault project configuration precedence;
 - project configuration validation;
+- agreement of the built-in defaults, JSON schema, and example configuration, and conservative Obsidian-preservation defaults;
+- refusal of Prettier configuration that can run code — without running it — unless trusted;
 - ignore-file parsing, glob matching, root anchoring, and ordered re-inclusion;
 - safe filtering of project-supplied Prettier options;
 - markdownlint conflict suppression when a structure is preserved;
 - GFM table formatting and table preservation;
-- exact preservation of Obsidian properties/frontmatter;
+- exact preservation of Obsidian properties/frontmatter, with line endings matching the formatted note;
 - wikilinks and embeds;
 - callouts and fold state;
 - block IDs;
@@ -28,13 +30,13 @@ Markdown Formatter uses multiple test layers because formatting bugs can either 
 - write-only-when-changed behavior;
 - re-entrancy protection.
 
-The regression fixture at `tests/fixtures/obsidian/all-syntax.txt` intentionally combines many Obsidian extensions, with deliberately irregular spacing, in a single note. Tests assert that their source-significant tokens survive a complete formatting pass. It is kept as `.txt` (and listed in `.prettierignore`) so no Markdown formatter reformats it.
+The fixture `tests/fixtures/obsidian/all-syntax.txt` combines many Obsidian extensions, with irregular spacing, in a single note. Tests assert that their source-significant tokens survive a complete formatting pass. It is kept as `.txt` (and listed in `.prettierignore`) so no Markdown formatter reformats it.
 
 ### Standalone CLI tests
 
 `tests/cli.test.ts` verifies:
 
-- command-line argument parsing;
+- command-line argument parsing (`--option=value`, repeated options, last-wins verbosity);
 - deterministic exit codes;
 - missing/invalid configuration handling;
 - recursive Markdown discovery;
@@ -47,7 +49,8 @@ The regression fixture at `tests/fixtures/obsidian/all-syntax.txt` intentionally
 - shared ignore-file exclusions and explicit `--ignore-file` overrides;
 - help/version surfaces and bundled executable behavior;
 - quiet/normal/verbose/debug argument handling;
-- detailed `--show-errors` diagnostics and diagnostic limits;
+- `--show-errors` diagnostics and their limit;
+- deterministic file order;
 - invalid option/path/config handling with exit code `2`;
 - continuation after per-file formatter failures.
 
@@ -75,13 +78,18 @@ These tests execute the same `formatMarkdown()` core called by the Obsidian plug
 - vault read failures and non-Markdown input handling;
 - optional updated-date property stamping (only on a real change, only if the property exists, custom name and Obsidian date format).
 
-`tests/frontmatter.test.ts` covers the `setFrontmatterProperty` helper directly: existing top-level scalars only, no key creation, quoting of ambiguous values, and byte-for-byte preservation of everything else.
+`tests/settings-tab.test.ts` covers the settings tab: reading and writing the active store, validation, and plugin-only settings.
 
 The mock is intentionally narrow. It models only APIs used by this plugin, making API assumptions explicit and easy to update when the minimum supported Obsidian version changes.
 
 ### Repository contract
 
-Release-critical metadata — version alignment, license, repository URLs, SHA-pinned Actions, the schema/example/defaults staying in sync, and the conservative Obsidian-preservation defaults — is enforced by `npm run check:metadata` (`check-versions.mjs`, `check-obsidian-compat.mjs`, `check-repository.mjs`), which runs in `npm run verify` and CI.
+`npm run check:metadata` runs in `npm run verify` and CI:
+
+- `check-versions.mjs` — `package.json`, `manifest.json`, `versions.json`, the example Dockerfile, and any release tag agree on the version;
+- `check-repository.mjs` — license files, SPDX headers on every source file, repository URLs, consistent Node.js/npm pins, published license files, SHA-pinned Actions, and least-privilege workflow permissions.
+
+The production build itself fails if a bundled package is under a license outside the permissive allow-list (see [Architecture → Build](ARCHITECTURE.md#build)).
 
 ## Static analysis
 
@@ -105,7 +113,7 @@ Coverage:
 npm run test:coverage
 ```
 
-The CI workflow runs coverage tests before build/release packaging and performs a smoke test of the bundled CLI covering help, version, diagnostics, verbosity, invalid arguments, `check`, and `format`. The thin `src/cli/cli.ts` process entrypoint is excluded from line-coverage thresholds because it is exercised end-to-end as the built executable; `src/cli/cli-lib.ts` remains fully in the unit/integration coverage scope. A failing test blocks releases.
+The CI workflow runs coverage tests before build/release packaging and performs a smoke test of the built bundles covering their license header and embedded third-party licenses, and the CLI's help, version, diagnostics, reports, Prettier trust, verbosity, invalid arguments, `check`, and `format`. The thin `src/cli/cli.ts` process entrypoint is excluded from line-coverage thresholds because it is exercised end-to-end as the built executable; the rest of `src/cli/` remains fully in the unit/integration coverage scope. A failing test blocks releases.
 
 ## Fuzzing
 
@@ -126,7 +134,7 @@ npm run build:fuzz    # only write fuzz/core.cjs (git-ignored), for a custom jaz
 
 ## Coverage policy
 
-Coverage is generated with V8 and includes the plugin source. The thresholds are deliberately meaningful but not treated as a substitute for behavioral regression tests. Obsidian UI-builder callback wiring is less valuable to line-cover than formatting and lifecycle behavior; fixtures and integration assertions are the primary compatibility contract.
+Coverage is generated with V8 and includes the plugin source. The thresholds are not a substitute for behavioral regression tests. Obsidian UI-builder callback wiring is less valuable to line-cover than formatting and lifecycle behavior; fixtures and integration assertions are the primary compatibility contract.
 
 ## Adding regression tests
 

@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it, vi } from "vitest";
 import { Notice, TFile } from "obsidian";
@@ -110,11 +111,11 @@ describe("Obsidian plugin integration", () => {
     const config = ".markdown-formatter.json";
     const env = createFakeApp({ files: { [config]: JSON.stringify({ formatOnOpen: false }) } });
     await env.plugin.onload();
-    expect((env.plugin as any).projectConfig.formatOnOpen).toBe(false);
+    expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(false);
     env.files.set(config, JSON.stringify({ formatOnOpen: true }));
     await env.emitVault("modify", new TFile(config) as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).projectConfig.formatOnOpen).toBe(true);
+    expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(true);
   });
 
   it("reloads project config and ignore file when renamed into or out of place", async () => {
@@ -122,23 +123,23 @@ describe("Obsidian plugin integration", () => {
     const ignore = ".markdown-formatter-ignore";
     const env = createFakeApp({ files: { "draft.json": JSON.stringify({ formatOnOpen: true }) } });
     await env.plugin.onload();
-    expect((env.plugin as any).projectConfig).toBeNull();
+    expect(env.plugin.vaultConfig.project).toBeNull();
 
     // A file renamed *to* the config path is picked up.
     env.files.set(config, env.files.get("draft.json")!);
     await env.emitVault("rename", new TFile(config) as any, "draft.json");
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).projectConfig.formatOnOpen).toBe(true);
+    expect(env.plugin.vaultConfig.project?.formatOnOpen).toBe(true);
 
     // Renaming the ignore file away reloads (and finds nothing).
     env.files.set(ignore, "Templates/**\n");
     await env.emitVault("rename", new TFile(ignore) as any, "old-ignore");
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).ignoreFilePatterns).toEqual(["Templates/**"]);
+    expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Templates/**"]);
     env.files.delete(ignore);
     await env.emitVault("rename", new TFile("archived-ignore") as any, ignore);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).ignoreFilePatterns).toEqual([]);
+    expect(env.plugin.vaultConfig.ignorePatterns).toEqual([]);
   });
 
   it("reloads plugin settings changed on disk: via the command, on window focus, and on tab open", async () => {
@@ -180,13 +181,13 @@ describe("Obsidian plugin integration", () => {
     const config = ".markdown-formatter.json";
     const env = createFakeApp();
     await env.plugin.onload();
-    expect((env.plugin as any).projectConfig).toBeNull();
+    expect(env.plugin.vaultConfig.project).toBeNull();
 
     // The vault config appears without a corresponding data.json change.
     env.files.set(config, JSON.stringify({ proseWrap: "always" }));
     await env.emitDom("focus");
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).projectConfig.proseWrap).toBe("always");
+    expect(env.plugin.vaultConfig.project?.proseWrap).toBe("always");
   });
 
   it("removes the ribbon when effective configuration disables it", async () => {
@@ -406,11 +407,11 @@ describe("Obsidian plugin integration", () => {
       files: { ".markdown-formatter-ignore": "Templates/**\n" },
     });
     await env.plugin.onload();
-    expect((env.plugin as any).ignoreFilePatterns).toEqual(["Templates/**"]);
+    expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Templates/**"]);
     env.files.set(".markdown-formatter-ignore", "Archive/**\n");
     await env.emitVault("modify", new TFile(".markdown-formatter-ignore") as any);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect((env.plugin as any).ignoreFilePatterns).toEqual(["Archive/**"]);
+    expect(env.plugin.vaultConfig.ignorePatterns).toEqual(["Archive/**"]);
   });
 
   it("creates an ignore file template from the command palette action", async () => {
@@ -451,7 +452,7 @@ describe("Obsidian plugin integration", () => {
     await env.plugin.loadProjectConfig(false);
     await env.plugin.formatFile(file, false);
     expect(env.files.get("active.md")).toBe("# active\n");
-    expect((env.plugin as any).projectConfigError).toBeNull();
+    expect(env.plugin.vaultConfig.projectError).toBeNull();
   });
 
   it("reports vault read failures without modifying the file or throwing", async () => {
@@ -493,7 +494,7 @@ describe("Obsidian plugin integration", () => {
       if (target === ".markdown-formatter-ignore") throw new Error("permission denied");
       return await originalRead(target);
     };
-    await env.plugin.loadIgnoreFile(true);
+    await env.plugin.vaultConfig.loadIgnore(true);
     await env.plugin.formatFile(file, true);
     expect(env.files.get("active.md")).toBe("#   unchanged\n");
     expect((Notice as any).messages.at(-1)).toContain("ignore file could not be loaded");

@@ -124,6 +124,7 @@ jobs:
             main-build/main.js
             main-build/markdown-formatter-cli.cjs
             main-build/manifest.json
+            main-build/THIRD_PARTY_LICENSES.txt
             main-build/markdown-formatter-${{ steps.channel.outputs.name }}.zip
             main-build/build-info.json
 
@@ -185,7 +186,9 @@ jobs:
             main-build/manifest.json \
             main-build/styles.css \
             main-build/LICENSE \
+            main-build/LICENSES/GPL-3.0-only.txt \
             main-build/THIRD_PARTY_NOTICES.md \
+            main-build/THIRD_PARTY_LICENSES.txt \
             main-build/build-info.json \
             "main-build/markdown-formatter-${CHANNEL}.zip" \
             main-build/*.intoto.jsonl \

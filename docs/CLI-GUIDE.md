@@ -14,6 +14,7 @@ The **standalone CLI** formats every Markdown file in a folder from a terminal, 
 - [Reports](#reports)
 - [Which files it looks at](#which-files-it-looks-at)
 - [Sharing rules with the Obsidian plugin](#sharing-rules-with-the-obsidian-plugin)
+- [Prettier configuration and trust](#prettier-configuration-and-trust)
 - [Pre-commit hook](#pre-commit-hook)
 - [Continuous integration](#continuous-integration)
 - [Docker](#docker)
@@ -72,7 +73,7 @@ If you omit the folder, the current directory is used.
 # See what would change, without touching anything:
 node markdown-formatter-cli.cjs check "/path/to/YourVault"
 
-# See the exact line-by-line differences:
+# See what has to change in each file, compactly:
 node markdown-formatter-cli.cjs check "/path/to/YourVault" --show-errors
 
 # Apply the formatting (take a backup or start from a clean git status):
@@ -121,22 +122,25 @@ FAILED: 42 file(s) checked; 1 need formatting, 40 clean, 1 failed.
 
 ## Options
 
-| Option                        | What it does                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| `--show-errors`, `--errors`   | In `check` mode, print the line-by-line "current vs expected" differences.            |
-| `--max-errors <n>`            | Max differences shown per file (1–1000; default 20).                                  |
-| `--show-changes`, `--changes` | Print every required change with a description and the exact current/formatted lines. |
-| `--report-file <path>`        | Write a detailed change report to this file. See [Reports](#reports).                 |
-| `--report-format <fmt>`       | `text` \| `json` \| `gitlab` \| `sarif` (default `text`). Requires `--report-file`.   |
-| `--exclude "<glob>"`          | Skip extra paths for this run only. Repeatable.                                       |
-| `--config <path>`             | Use a specific config file instead of `.markdown-formatter.json` in the folder.       |
-| `--ignore-file <path>`        | Use a specific ignore file instead of `.markdown-formatter-ignore`.                   |
-| `-q`, `--quiet`               | Print only the final summary line and any errors.                                     |
-| `--verbose`                   | Print every processed file with its status (including unchanged).                     |
-| `--debug`                     | Everything `--verbose` shows, plus the resolved config/ignore paths.                  |
-| `--verbosity <level>`         | `quiet` \| `normal` \| `verbose` \| `debug` (alternative to the flags above).         |
-| `-h`, `--help`                | Full built-in help.                                                                   |
-| `-V`, `--version`             | CLI version and Node.js version.                                                      |
+| Option                        | What it does                                                                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--show-errors`, `--errors`   | In `check` mode, list each required change compactly: location, description, and the current/expected text.                |
+| `--max-errors <n>`            | Max changes `--show-errors` shows per file (1–1000; default 20); the rest are counted.                                     |
+| `--show-changes`, `--changes` | Print every required change with a description and the exact current/formatted lines.                                      |
+| `--report-file <path>`        | Write a detailed change report to this file. See [Reports](#reports).                                                      |
+| `--report-format <fmt>`       | `text` \| `json` \| `gitlab` \| `sarif` (default `text`). Requires `--report-file`.                                        |
+| `--exclude "<glob>"`          | Skip extra paths for this run only. Repeatable.                                                                            |
+| `--config <path>`             | Use a specific config file instead of `.markdown-formatter.json` in the folder.                                            |
+| `--ignore-file <path>`        | Use a specific ignore file instead of `.markdown-formatter-ignore`.                                                        |
+| `--trust-prettier-config`     | Allow Prettier configuration that can run code. See [Prettier configuration and trust](#prettier-configuration-and-trust). |
+| `-q`, `--quiet`               | Print only the final summary line and any errors.                                                                          |
+| `--verbose`                   | Print every processed file with its status (including unchanged).                                                          |
+| `--debug`                     | Everything `--verbose` shows, plus the resolved config/ignore paths.                                                       |
+| `--verbosity <level>`         | `quiet` \| `normal` \| `verbose` \| `debug` (alternative to the flags above).                                              |
+| `-h`, `--help`                | Full built-in help.                                                                                                        |
+| `-V`, `--version`             | CLI version, Node.js version, and license.                                                                                 |
+
+Options that take a value also accept the `--option=value` form. When `-q`, `--verbose`, `--debug`, and `--verbosity` are combined, the last one wins.
 
 The default config path is `.markdown-formatter.json` in the folder root. A missing default file falls back to the safe built-in defaults; a `--config` file that cannot be loaded stops the run with exit `2` (no silent fallback).
 
@@ -186,7 +190,7 @@ Ready-made workflows: [`examples/gitlab/.gitlab-ci.yml`](../examples/gitlab/.git
 
 ## Which files it looks at
 
-- Scans `.md` files recursively, in every sub-folder.
+- Scans files ending in `.md` (in any letter case) recursively, in every sub-folder.
 - Never follows directory symlinks.
 - Always skips `.git`, `.obsidian`, `.trash`, and `node_modules`.
 - Reads `.markdown-formatter-ignore` from the folder root — same [pattern syntax](CONFIGURATION.md#formatting-exclusions) as the plugin.
@@ -201,6 +205,14 @@ Put a `.markdown-formatter.json` in the folder root (the plugin's **Create proje
 - Obsidian-only keys — `formatOnModify`, `formatOnOpen`, `formatOnClose`, `showRibbonButton`, `debounceMs`, `stampUpdatedProperty`, `updatedProperty` — are accepted but ignored.
 
 Field reference: [Configuration](CONFIGURATION.md).
+
+## Prettier configuration and trust
+
+The CLI applies `.editorconfig` and Prettier configuration exactly like the plugin — see [which settings apply](CONFIGURATION.md#editorconfig-and-prettier).
+
+Prettier configuration that can run code — JavaScript/TypeScript config files, a config that names a shared-config package, and `plugins` — is not loaded by default, because `check` often runs on content you did not write (a pull request, a downloaded vault). `plugins` are ignored, and a code-capable config makes the affected files fail with exit `2` and an explanation.
+
+Pass `--trust-prettier-config` to load such configuration exactly as Prettier would — only for workspaces you trust, such as your own repository.
 
 ## Pre-commit hook
 
@@ -249,6 +261,10 @@ jobs:
       - run: |
           curl -fsSL -o /tmp/mdf.cjs \
             https://github.com/jjm-one/Markdown-Formatter-for-Obsidian/releases/download/0.1.0/markdown-formatter-cli.cjs
+      # Only run a CLI built by this project's release workflow (SLSA provenance).
+      - run: gh attestation verify /tmp/mdf.cjs --repo jjm-one/Markdown-Formatter-for-Obsidian
+        env:
+          GH_TOKEN: ${{ github.token }}
       - run: node /tmp/mdf.cjs check .
 ```
 
@@ -301,8 +317,10 @@ npx markdown-formatter format .
 
 **Exit `2` with "Could not load configuration"** — `.markdown-formatter.json` is invalid JSON or has an unknown key. Fix it, or drop `--config` to use defaults.
 
-**`check` says files need formatting but you can't see why** — add `--show-errors`.
+**`check` says files need formatting but you can't see why** — add `--show-errors` (compact) or `--show-changes` (every change with the exact lines).
+
+**"Prettier configuration … can run code, so it was not loaded"** — your Prettier config is a JS/TS file or names a shared-config package. Convert it to `.prettierrc.json`, or pass `--trust-prettier-config` if you trust the workspace. See [Prettier configuration and trust](#prettier-configuration-and-trust).
 
 **It reformatted a code block / Mermaid diagram** — set `markdownStructures.fencedCodeBlocks` to `"preserve"` (the default — check it wasn't changed).
 
-**Slow on a huge vault** — narrow the scan with `--exclude` for attachments, archives, and generated folders.
+**Slow on a huge vault** — narrow the scan with `--exclude` for attachments, archives, and generated folders. (Several files are formatted at once; output order is always alphabetical.)

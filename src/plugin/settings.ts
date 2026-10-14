@@ -1,146 +1,110 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
-/** Shape, defaults, and load-time sanitization of the settings Obsidian persists for this plugin. */
+/** Shape, defaults, and validation of the settings Obsidian persists for this plugin. */
 
 import {
-  DEBOUNCE_MAX_MS,
-  DEBOUNCE_MIN_MS,
-  DEFAULT_LINK_SETTINGS,
-  DEFAULT_MARKDOWNLINT_CONFIG,
-  DEFAULT_MARKDOWN_STRUCTURES,
-  DEFAULT_OBSIDIAN_SYNTAX,
-  DEFAULT_UPDATED_PROPERTY,
+  DEFAULT_SETTINGS,
   isSafeVaultRelativePath,
-  LINK_MODES,
-  OBSIDIAN_SYNTAX_MODES,
-  PROSE_WRAP_MODES,
-  STRUCTURE_MODES,
-  UPDATED_PROPERTY_PATTERN,
-  type MarkdownLinkSettings,
-  type MarkdownStructureSettings,
-  type ObsidianSyntaxSettings,
+  validateProjectSetting,
+  type EffectiveSettings,
 } from "../core";
 
-export interface FormatterSettings {
-  formatOnModify: boolean;
-  formatOnOpen: boolean;
-  formatOnClose: boolean;
-  showRibbonButton: boolean;
-  debounceMs: number;
-  runMarkdownlintFixes: boolean;
-  usePrettierConfig: boolean;
+/** The project-config settings the plugin also stores itself (markdownlint as editable JSON text). */
+type SharedSettings = Omit<EffectiveSettings, "prettier" | "markdownlint" | "ignore">;
+
+export interface FormatterSettings extends SharedSettings {
+  /** Read and write `.markdown-formatter.json` when it exists. */
   useProjectConfig: boolean;
   projectConfigPath: string;
-  proseWrap: "always" | "never" | "preserve";
-  markdownStructures: MarkdownStructureSettings;
-  links: MarkdownLinkSettings;
-  obsidianSyntax: ObsidianSyntaxSettings;
   markdownlintConfigJson: string;
-  /** When a format changes a note, also set `updatedProperty` to today's date. */
-  stampUpdatedProperty: boolean;
-  /** Frontmatter key refreshed by {@link stampUpdatedProperty} (only if already present). */
-  updatedProperty: string;
+  /**
+   * Allow Prettier configuration that can run code (JS/TS configs, shared
+   * configs, plugins). Plugin-only, so a vault file cannot grant itself trust.
+   */
+  trustPrettierConfig: boolean;
 }
 
-const DEFAULT_SETTINGS: FormatterSettings = {
-  formatOnModify: false,
-  formatOnOpen: false,
-  formatOnClose: false,
-  showRibbonButton: true,
-  debounceMs: 900,
-  runMarkdownlintFixes: true,
-  usePrettierConfig: true,
+const {
+  prettier: _prettier,
+  markdownlint: defaultMarkdownlint,
+  ignore: _ignore,
+  ...sharedDefaults
+} = DEFAULT_SETTINGS;
+
+const DEFAULT_PLUGIN_SETTINGS: FormatterSettings = {
+  ...sharedDefaults,
   useProjectConfig: true,
   projectConfigPath: ".markdown-formatter.json",
-  proseWrap: "preserve",
-  markdownStructures: { ...DEFAULT_MARKDOWN_STRUCTURES },
-  links: { ...DEFAULT_LINK_SETTINGS },
-  obsidianSyntax: { ...DEFAULT_OBSIDIAN_SYNTAX },
-  markdownlintConfigJson: JSON.stringify(DEFAULT_MARKDOWNLINT_CONFIG, null, 2),
-  stampUpdatedProperty: false,
-  updatedProperty: DEFAULT_UPDATED_PROPERTY,
+  markdownlintConfigJson: JSON.stringify(defaultMarkdownlint, null, 2),
+  trustPrettierConfig: false,
 };
 
-/** A fresh copy of the defaults, with nested objects cloned so callers can mutate them freely. */
+/** A fresh, mutable copy of the defaults. */
 export function cloneDefaultSettings(): FormatterSettings {
-  return {
-    ...DEFAULT_SETTINGS,
-    markdownStructures: { ...DEFAULT_MARKDOWN_STRUCTURES },
-    links: { ...DEFAULT_LINK_SETTINGS },
-    obsidianSyntax: { ...DEFAULT_OBSIDIAN_SYNTAX },
-  };
+  return structuredClone(DEFAULT_PLUGIN_SETTINGS);
 }
 
-/** Coerce persisted settings (which may be stale or corrupt) into a valid {@link FormatterSettings}. */
-export function normalizePluginSettings(value: unknown): FormatterSettings {
-  const defaults = cloneDefaultSettings();
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return defaults;
-  const loaded = value as Partial<FormatterSettings>;
-  const bool = (candidate: unknown, fallback: boolean) =>
-    typeof candidate === "boolean" ? candidate : fallback;
-  const debounce =
-    typeof loaded.debounceMs === "number" &&
-    Number.isFinite(loaded.debounceMs) &&
-    loaded.debounceMs >= DEBOUNCE_MIN_MS &&
-    loaded.debounceMs <= DEBOUNCE_MAX_MS
-      ? loaded.debounceMs
-      : defaults.debounceMs;
-  const proseWrap = (PROSE_WRAP_MODES as readonly string[]).includes(loaded.proseWrap as string)
-    ? (loaded.proseWrap as FormatterSettings["proseWrap"])
-    : defaults.proseWrap;
-  const projectPath =
-    typeof loaded.projectConfigPath === "string" &&
-    isSafeVaultRelativePath(loaded.projectConfigPath.trim())
-      ? loaded.projectConfigPath.trim()
-      : defaults.projectConfigPath;
-  const markdownlintConfigJson =
-    typeof loaded.markdownlintConfigJson === "string"
-      ? loaded.markdownlintConfigJson
-      : defaults.markdownlintConfigJson;
-  const updatedProperty =
-    typeof loaded.updatedProperty === "string" &&
-    UPDATED_PROPERTY_PATTERN.test(loaded.updatedProperty.trim())
-      ? loaded.updatedProperty.trim()
-      : defaults.updatedProperty;
-  return {
-    formatOnModify: bool(loaded.formatOnModify, defaults.formatOnModify),
-    formatOnOpen: bool(loaded.formatOnOpen, defaults.formatOnOpen),
-    formatOnClose: bool(loaded.formatOnClose, defaults.formatOnClose),
-    showRibbonButton: bool(loaded.showRibbonButton, defaults.showRibbonButton),
-    debounceMs: debounce,
-    runMarkdownlintFixes: bool(loaded.runMarkdownlintFixes, defaults.runMarkdownlintFixes),
-    usePrettierConfig: bool(loaded.usePrettierConfig, defaults.usePrettierConfig),
-    useProjectConfig: bool(loaded.useProjectConfig, defaults.useProjectConfig),
-    projectConfigPath: projectPath,
-    proseWrap,
-    markdownStructures: normalizeModes(
-      loaded.markdownStructures,
-      DEFAULT_MARKDOWN_STRUCTURES,
-      STRUCTURE_MODES,
-    ),
-    links: normalizeModes(loaded.links, DEFAULT_LINK_SETTINGS, LINK_MODES),
-    obsidianSyntax: normalizeModes(
-      loaded.obsidianSyntax,
-      DEFAULT_OBSIDIAN_SYNTAX,
-      OBSIDIAN_SYNTAX_MODES,
-    ),
-    markdownlintConfigJson,
-    stampUpdatedProperty: bool(loaded.stampUpdatedProperty, defaults.stampUpdatedProperty),
-    updatedProperty,
-  };
-}
-
-/** Return `defaults` with each known key overridden only by an allowed string value in `value`. */
-function normalizeModes<T extends Record<string, string>>(
-  value: unknown,
-  defaults: T,
-  allowed: readonly string[],
-): T {
-  const result: Record<string, string> = { ...defaults };
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return result as T;
-  for (const key of Object.keys(defaults)) {
-    const candidate = (value as Record<string, unknown>)[key];
-    if (typeof candidate === "string" && allowed.includes(candidate)) result[key] = candidate;
+/**
+ * Validate one plugin setting, addressed as `key` or `group.key`; throws if the
+ * value is not acceptable. Settings shared with the project config use the
+ * project-config rules, so both stores accept exactly the same values.
+ */
+export function validatePluginSetting(path: string, value: unknown): void {
+  const key = path.split(".", 1)[0] ?? "";
+  if (!Object.hasOwn(DEFAULT_PLUGIN_SETTINGS, key))
+    throw new Error(`Unknown plugin setting: ${path}.`);
+  switch (path) {
+    case "useProjectConfig":
+    case "trustPrettierConfig":
+      if (typeof value !== "boolean") throw new Error(`${path} must be true or false.`);
+      return;
+    case "projectConfigPath":
+      if (!isSafeVaultRelativePath(value))
+        throw new Error("Project configuration path must be a safe vault-relative path.");
+      return;
+    case "markdownlintConfigJson":
+      if (typeof value !== "string") throw new Error("markdownlintConfigJson must be text.");
+      return;
+    default:
+      validateProjectSetting(path, value);
   }
-  return result as T;
+}
+
+/**
+ * Coerce persisted settings (which may be stale or corrupt) into valid
+ * {@link FormatterSettings}: every valid value is kept (strings trimmed), every
+ * invalid or missing one falls back to its default — per entry for grouped settings.
+ */
+export function normalizePluginSettings(value: unknown): FormatterSettings {
+  const settings = cloneDefaultSettings();
+  if (!isRecord(value)) return settings;
+  const target = settings as unknown as Record<string, unknown>;
+
+  for (const [key, fallback] of Object.entries(settings)) {
+    const candidate = value[key];
+    if (isRecord(fallback)) {
+      if (!isRecord(candidate)) continue;
+      for (const name of Object.keys(fallback)) {
+        if (isValid(`${key}.${name}`, candidate[name])) fallback[name] = candidate[name];
+      }
+      continue;
+    }
+    const trimmed = typeof candidate === "string" ? candidate.trim() : candidate;
+    if (candidate !== undefined && isValid(key, trimmed)) target[key] = trimmed;
+  }
+  return settings;
+}
+
+function isValid(path: string, value: unknown): boolean {
+  try {
+    validatePluginSetting(path, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

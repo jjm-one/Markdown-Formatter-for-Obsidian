@@ -1,6 +1,7 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 import { describe, expect, it } from "vitest";
-import type { CliResult } from "../src/cli/cli-lib";
+import type { CliResult } from "../src/cli/types";
 import { formatChangeDetail, renderReport, visibleLine, type ReportMeta } from "../src/cli/report";
 
 const meta: ReportMeta = {
@@ -17,7 +18,6 @@ function result(overrides: Partial<CliResult> = {}): CliResult {
     formatted: 0,
     unchanged: 1,
     failed: 0,
-    files: ["note.md"],
     entries: [
       {
         file: "note.md",

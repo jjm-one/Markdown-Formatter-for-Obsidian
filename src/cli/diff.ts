@@ -1,37 +1,20 @@
+// SPDX-FileCopyrightText: 2026 jjm.one
 // SPDX-License-Identifier: LGPL-3.0-only
 
 /** Myers shortest-edit-script line diff, used to align lines for `--show-changes` / report data. */
 
 export type DiffOpType = "equal" | "delete" | "insert";
 
-export interface DiffHunk {
-  /** 0-based index into `a` where the hunk starts. */
-  aStart: number;
-  /** Number of `a` lines this hunk removes or replaces. */
-  aCount: number;
-  /** 0-based index into `b` where the hunk starts. */
-  bStart: number;
-  /** Number of `b` lines this hunk adds or replaces with. */
-  bCount: number;
-}
-
 /**
- * The shortest edit script turning `a` into `b`, as a sequence of per-line ops.
- * O(N + D^2) where D is the number of differing lines — fast whenever the two
- * texts are close, which is the common case for a formatter's own output.
+ * The shortest edit script turning `a` into `b`, as a sequence of per-line ops,
+ * or `undefined` once it would exceed `maxEdits`. O(N + D^2) time where D is the
+ * number of differing lines — fast whenever the two texts are close, the common
+ * case for a formatter's own output — but O(D·(N+M)) memory, so callers cap D.
  */
-export function diffLines(a: readonly string[], b: readonly string[]): DiffOpType[] {
-  return diffLinesBounded(a, b, Number.POSITIVE_INFINITY) ?? [];
-}
-
-/**
- * {@link diffLines}, but gives up and returns `undefined` once the edit script
- * would exceed `maxEdits` — the trace is O(D·(N+M)) memory, so callers cap D.
- */
-export function diffLinesBounded(
+export function diffLines(
   a: readonly string[],
   b: readonly string[],
-  maxEdits: number,
+  maxEdits = Number.POSITIVE_INFINITY,
 ): DiffOpType[] | undefined {
   const n = a.length;
   const m = b.length;
@@ -83,29 +66,4 @@ export function diffLinesBounded(
     y = prevY;
   }
   return ops.reverse();
-}
-
-/** Collapse a per-line op sequence into contiguous change hunks (equal runs dropped). */
-export function groupHunks(ops: readonly DiffOpType[]): DiffHunk[] {
-  const hunks: DiffHunk[] = [];
-  let aPos = 0;
-  let bPos = 0;
-  let i = 0;
-  while (i < ops.length) {
-    if (ops[i] === "equal") {
-      aPos += 1;
-      bPos += 1;
-      i += 1;
-      continue;
-    }
-    const aStart = aPos;
-    const bStart = bPos;
-    while (i < ops.length && ops[i] !== "equal") {
-      if (ops[i] === "delete") aPos += 1;
-      else bPos += 1;
-      i += 1;
-    }
-    hunks.push({ aStart, aCount: aPos - aStart, bStart, bCount: bPos - bStart });
-  }
-  return hunks;
 }
