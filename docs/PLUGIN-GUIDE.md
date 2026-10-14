@@ -26,6 +26,7 @@ If you just want a quick start: install the plugin, open a note, and run the com
   - [Link formatting](#link-formatting)
   - [Obsidian compatibility](#obsidian-compatibility)
   - [Markdownlint](#markdownlint)
+  - [About](#about)
 - [Commands reference](#commands-reference)
 - [Excluding notes from formatting](#excluding-notes-from-formatting)
 - [Sharing one set of rules with other people](#sharing-one-set-of-rules-with-other-people)
@@ -267,6 +268,10 @@ If you switch one of these to _Allow formatter_, a generic Markdown formatter ma
 | ------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Apply markdownlint fixes**   | On                   | After Prettier runs, also apply safe automatic fixes from markdownlint rules (things Prettier doesn't handle). Turn off to let Prettier be the only formatter.                                                                                                                                                                               |
 | **Markdownlint configuration** | (a small JSON block) | Advanced: which markdownlint rules are on/off. You rarely need to touch this. The defaults are chosen to work well with Obsidian; see [Configuration → markdownlint](CONFIGURATION.md#markdownlint) for exactly which rules are disabled and why. If you edit the JSON and it is invalid, the plugin ignores it and keeps the safe defaults. |
+
+### About
+
+Shows the installed version and how it was built — release, `main`/`develop` development build, or local build — with the source commit and its date, plus your Obsidian version. **Copy** puts that line on the clipboard; please include it in bug reports.
 
 ---
 

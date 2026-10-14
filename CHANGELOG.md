@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file, following
 - CLI: `--report-file <path>` writes a change report, in `--report-format text` (default), `json`, `gitlab` (Code Quality / Code Climate JSON, for `artifacts: reports: codequality:`), or `sarif` (SARIF 2.1.0, for `github/codeql-action/upload-sarif`). The report covers the full run, including read/format/write failures, with per-type counts and the exact before/after lines of every change. Examples: `examples/gitlab/.gitlab-ci.yml` (Code Quality) and `examples/github-actions/markdown-format-report.yml` (SARIF).
 - **Trust Prettier configuration** plugin setting (off by default, stored per device) and CLI flag `--trust-prettier-config`, to load Prettier configuration that can run code.
 - CLI: options that take a value also accept `--option=value`.
+- Version and build information (release or development channel, source commit, commit date): in a new **About** section of the plugin settings, with a **Copy** button for bug reports, and in the CLI's `--version` output, also available as `markdown-formatter version`.
 
 ### Security
 

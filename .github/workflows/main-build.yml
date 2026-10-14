@@ -93,6 +93,7 @@ jobs:
 
       - name: Build development artifacts
         env:
+          BUILD_CHANNEL: ${{ steps.channel.outputs.name }}
           BUILD_VERSION: ${{ steps.version.outputs.build_version }}
         run: npm run build
 

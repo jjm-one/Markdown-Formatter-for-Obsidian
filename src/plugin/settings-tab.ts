@@ -12,8 +12,9 @@
  * value (project override, then plugin setting).
  */
 
-import { App, Notice, PluginSettingTab, type Setting } from "obsidian";
+import { apiVersion, App, Notice, PluginSettingTab, type Setting } from "obsidian";
 import {
+  describeBuild,
   DEBOUNCE_MAX_MS,
   DEBOUNCE_MIN_MS,
   DEFAULT_SETTINGS,
@@ -351,7 +352,30 @@ export class FormatterSettingTab extends PluginSettingTab {
           },
         ],
       },
+      {
+        type: "group" as const,
+        heading: "About",
+        items: [
+          {
+            name: "Version",
+            desc: this.versionText(),
+            render: (setting: Setting) => {
+              setting.addButton((button) =>
+                button.setButtonText("Copy").onClick(async () => {
+                  await navigator.clipboard.writeText(this.versionText());
+                  new Notice("Version information copied.");
+                }),
+              );
+            },
+          },
+        ],
+      },
     ];
+  }
+
+  /** Plugin version, build, and Obsidian version, as shown in the tab and copied for bug reports. */
+  versionText(): string {
+    return `Markdown Formatter ${describeBuild()} · Obsidian ${apiVersion}`;
   }
 
   /** Effective markdownlint config as JSON text: the project file's object, else the plugin's. */

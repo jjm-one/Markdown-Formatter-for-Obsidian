@@ -10,6 +10,7 @@ import esbuild from "esbuild";
 import process from "node:process";
 import { builtinModules } from "node:module";
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 import { bundledPackages, legalComment, renderLicenses } from "./scripts/third-party-licenses.mjs";
 
 const PRODUCT = "Markdown Formatter for Obsidian";
@@ -18,6 +19,32 @@ const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const packageVersion = process.env.BUILD_VERSION?.trim() || packageJson.version;
 const mode = process.argv[2];
 const production = mode === "production";
+
+/** Output of a git command, or null outside a repository. */
+function git(...args) {
+  try {
+    return execFileSync("git", args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+// Shown by the CLI's `--version` and the plugin's settings tab. CI sets
+// BUILD_CHANNEL/BUILD_SHA for rolling builds and RELEASE_TAG for releases.
+const commit = process.env.BUILD_SHA?.trim() || git("rev-parse", "HEAD");
+const dirty = !process.env.BUILD_SHA && commit !== null && git("status", "--porcelain") !== "";
+const buildInfo = {
+  version: packageVersion,
+  channel:
+    process.env.BUILD_CHANNEL?.trim() ||
+    (process.env.RELEASE_TAG ? "release" : process.env.CI ? "ci" : "local"),
+  commit: commit ? `${commit.slice(0, 12)}${dirty ? "-dirty" : ""}` : null,
+  date: commit ? git("show", "-s", "--format=%cI", commit) : null,
+};
+const buildDefine = { __BUILD_INFO__: JSON.stringify(buildInfo) };
 
 const nodeBuiltins = [...builtinModules, ...builtinModules.map((name) => `node:${name}`)];
 
@@ -72,7 +99,7 @@ const pluginContext = await esbuild.context({
   entryPoints: ["src/plugin/main.ts"],
   external: ["obsidian", "electron", ...nodeBuiltins],
   target: "es2022",
-  define: { ...importMetaDefine },
+  define: { ...importMetaDefine, ...buildDefine },
   outfile: "main.js",
 });
 
@@ -80,7 +107,7 @@ const cliContext = await esbuild.context({
   ...shared,
   entryPoints: ["src/cli/cli.ts"],
   target: "node24",
-  define: { ...importMetaDefine, __PACKAGE_VERSION__: JSON.stringify(packageVersion) },
+  define: { ...importMetaDefine, ...buildDefine },
   outfile: "markdown-formatter-cli.cjs",
 });
 

@@ -138,7 +138,7 @@ FAILED: 42 file(s) checked; 1 need formatting, 40 clean, 1 failed.
 | `--debug`                     | Everything `--verbose` shows, plus the resolved config/ignore paths.                                                       |
 | `--verbosity <level>`         | `quiet` \| `normal` \| `verbose` \| `debug` (alternative to the flags above).                                              |
 | `-h`, `--help`                | Full built-in help.                                                                                                        |
-| `-V`, `--version`             | CLI version, Node.js version, and license.                                                                                 |
+| `-V`, `--version`, `version`  | CLI version, build (channel, commit, date), Node.js version, and license.                                                  |
 
 Options that take a value also accept the `--option=value` form. When `-q`, `--verbose`, `--debug`, and `--verbosity` are combined, the last one wins.
 

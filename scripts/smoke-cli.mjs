@@ -57,9 +57,16 @@ if (
   throw new Error(`CLI help smoke test failed.\n${help.stdout}\n${help.stderr}`);
 }
 
-const version = run(["--version"]);
-if (version.status !== 0 || !/Markdown Formatter for Obsidian \d+\.\d+\.\d+/.test(version.stdout)) {
-  throw new Error(`CLI version smoke test failed.\n${version.stdout}\n${version.stderr}`);
+for (const args of [["--version"], ["version"]]) {
+  const version = run(args);
+  if (
+    version.status !== 0 ||
+    !/Markdown Formatter for Obsidian \d+\.\d+\.\d+/.test(version.stdout) ||
+    !/^Build: {3}\w+ build/m.test(version.stdout) ||
+    !version.stdout.includes("LGPL-3.0-only")
+  ) {
+    throw new Error(`CLI ${args[0]} smoke test failed.\n${version.stdout}\n${version.stderr}`);
+  }
 }
 
 const badArgs = run(["check", ".", "--not-a-real-option"]);

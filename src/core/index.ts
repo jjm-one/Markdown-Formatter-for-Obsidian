@@ -3,6 +3,7 @@
 
 /** Public surface of the shared formatter core. */
 
+export * from "./build-info";
 export * from "./config";
 export * from "./errors";
 export * from "./frontmatter";

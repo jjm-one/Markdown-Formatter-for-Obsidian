@@ -91,6 +91,15 @@ describe("settings tab controls", () => {
     expect(ribbon).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the version and build in an About group", async () => {
+    const { tab } = await loadTab();
+    const groups = tab.getSettingDefinitions() as { heading: string; items: any[] }[];
+    const about = groups.find((group) => group.heading === "About");
+    expect(about?.items[0]?.desc).toMatch(
+      /^Markdown Formatter development \(development build\) · Obsidian 1\.13\.7$/,
+    );
+  });
+
   it("builds every setting group without a browser DOM", async () => {
     const { tab } = await loadTab();
     const groups = tab.getSettingDefinitions() as { heading: string; items: unknown[] }[];

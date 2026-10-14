@@ -47,7 +47,7 @@ The fixture `tests/fixtures/obsidian/all-syntax.txt` combines many Obsidian exte
 - shared Obsidian syntax preservation in headless mode;
 - built-in CLI scan exclusions and project ignore patterns;
 - shared ignore-file exclusions and explicit `--ignore-file` overrides;
-- help/version surfaces and bundled executable behavior;
+- help/version surfaces (including build information) and bundled executable behavior;
 - quiet/normal/verbose/debug argument handling;
 - `--show-errors` diagnostics and their limit;
 - deterministic file order;

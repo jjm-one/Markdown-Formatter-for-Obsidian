@@ -6,16 +6,14 @@
 
 import { promises as fs } from "node:fs";
 import process from "node:process";
-import { errorMessage } from "../core";
+import { BUILD_INFO, buildDetails, errorMessage } from "../core";
 import { parseCliArgs } from "./args";
 import { renderResult } from "./output";
 import { renderReport } from "./report";
 import { cliExitCode, runStandalone } from "./run";
 import { REPORT_FORMATS } from "./types";
 
-/** Injected by esbuild at build time from `package.json`. */
-declare const __PACKAGE_VERSION__: string;
-const VERSION = __PACKAGE_VERSION__;
+const VERSION = BUILD_INFO.version;
 const NAME = "Markdown Formatter for Obsidian";
 const TOOL_ID = "markdown-formatter";
 const INFORMATION_URI = "https://github.com/jjm-one/Markdown-Formatter-for-Obsidian";
@@ -26,7 +24,7 @@ function printHelp(): void {
 Usage:
   markdown-formatter <check|format> [workspace] [options]
   markdown-formatter --help
-  markdown-formatter --version
+  markdown-formatter --version         (or: markdown-formatter version)
 
 Modes:
   check    Validate Markdown without modifying files.
@@ -57,7 +55,7 @@ Options:
   --debug                  Print resolved paths/options plus verbose output
   --verbosity <level>      quiet | normal | verbose | debug
   -h, --help               Show this help
-  -V, --version            Show version information
+  -V, --version            Show version, build, and license information
 
   Options taking a value also accept --option=value.
 
@@ -83,7 +81,8 @@ Configuration:
 
 function printVersion(): void {
   console.log(`${NAME} ${VERSION}`);
-  console.log(`Node ${process.versions.node}`);
+  console.log(`Build:   ${buildDetails()}`);
+  console.log(`Node.js: ${process.versions.node}`);
   console.log(`
 Copyright (C) 2026 jjm.one
 License LGPL-3.0-only: GNU Lesser General Public License v3.0 only.
@@ -113,7 +112,7 @@ async function main(): Promise<void> {
     printHelp();
     return;
   }
-  if (args.includes("--version") || args.includes("-V")) {
+  if (args[0] === "version" || args.includes("--version") || args.includes("-V")) {
     printVersion();
     return;
   }
