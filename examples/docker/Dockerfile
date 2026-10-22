@@ -7,7 +7,7 @@
 # mounted files, add --user "$(id -u):$(id -g)".
 
 # Pinned by digest; Dependabot's `docker` updater bumps the tag and digest together.
-FROM node:26.10.0-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
+FROM node:26.11.1-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a
 
 # Release tag to download the CLI from (or "main-latest" / "develop-latest"). scripts/version-bump.mjs
 # keeps this aligned with releases; check:versions enforces it.
