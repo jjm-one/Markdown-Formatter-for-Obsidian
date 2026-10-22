@@ -51,8 +51,8 @@
     "verify:main-build": "node scripts/verify-package.mjs snapshot"
   },
   "dependencies": {
-    "markdownlint": "0.41.1",
-    "prettier": "3.9.9"
+    "markdownlint": "0.42.0",
+    "prettier": "3.9.10"
   },
   "devDependencies": {
     "@jazzer.js/core": "4.0.0",
