@@ -135,7 +135,7 @@ export class VaultConfig {
       try {
         parsed = JSON.parse(raw);
       } catch (error) {
-        throw new Error(`Invalid JSON in ${configPath}: ${errorMessage(error)}`);
+        throw new Error(`Invalid JSON in ${configPath}: ${errorMessage(error)}`, { cause: error });
       }
       validateProjectConfig(parsed);
       this.project = parsed;
