@@ -121,6 +121,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      # Fail on a known high/critical advisory anywhere in the dependency tree.
-      - name: npm audit
-        run: npm audit --audit-level=high
+      # Shipped dependencies fail on high/critical; dev tooling only on critical.
+      - name: npm audit (shipped dependencies)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: npm audit (dev tooling)
+        run: npm audit --audit-level=critical

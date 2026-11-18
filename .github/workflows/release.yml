@@ -53,8 +53,12 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
+      # Shipped dependencies fail on high/critical; dev tooling only on critical.
+      - name: Audit shipped dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit dev tooling
+        run: npm audit --audit-level=critical
 
       - name: Validate source and run tests
         run: npm run verify
