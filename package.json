@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "markdownlint": "0.42.1",
-    "prettier": "3.9.10"
+    "prettier": "3.10.1"
   },
   "devDependencies": {
     "@jazzer.js/core": "4.0.0",
